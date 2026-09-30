@@ -9,6 +9,7 @@
     "dev": "vite",
     "build": "vite build",
     "typecheck": "tsc --noEmit",
+    "test:firebase": "node tests/firebase.mjs",
     "test": "node tests/editor.mjs && node tests/lottie.mjs && node tests/render.mjs && node tests/interactions.mjs && node tests/dashboard-preview.mjs && node tests/media.mjs && node tests/media-ui.mjs",
     "preview": "vite preview"
   },
