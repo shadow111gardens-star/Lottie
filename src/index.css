@@ -1,0 +1,206 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-background: #ffffff;
+  --color-foreground: #0f172a;
+  --color-muted: #64748b;
+  --color-accent: #4f46e5;
+  --color-accent-2: #ec4899;
+  --color-surface: #ffffff;
+  --color-surface-2: #f8fafc;
+}
+
+html.lenis, html.lenis body {
+  height: auto;
+}
+
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+
+.lenis.lenis-smooth [data-lenis-prevent] {
+  overscroll-behavior: contain;
+}
+
+.lenis.lenis-stopped {
+  overflow: hidden;
+}
+
+.lenis.lenis-smooth iframe {
+  pointer-events: none;
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  font-family: "Outfit", ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  cursor: auto;
+  overflow-x: hidden;
+}
+
+@media (pointer: coarse) {
+  body {
+    cursor: auto;
+  }
+}
+
+.font-display {
+  font-family: "Outfit", ui-sans-serif, system-ui, sans-serif;
+}
+
+.text-stroke {
+  -webkit-text-stroke: 1.5px rgba(15, 23, 42, 0.2);
+  -webkit-text-fill-color: transparent;
+}
+
+.gradient-text {
+  background: linear-gradient(135deg, #4f46e5 0%, #ec4899 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.glass-light {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.card-hover {
+  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.5s ease, border-color 0.3s ease;
+}
+
+.card-hover:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 30px 60px -20px rgba(15, 23, 42, 0.12);
+  border-color: rgba(79, 70, 229, 0.2);
+}
+
+.line-draw {
+  stroke-dasharray: 1000;
+  stroke-dashoffset: 1000;
+}
+
+.mask-radial {
+  mask-image: radial-gradient(circle at center, black 40%, transparent 80%);
+  -webkit-mask-image: radial-gradient(circle at center, black 40%, transparent 80%);
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+@keyframes marquee-left {
+  0% { transform: translateX(-50%); }
+  100% { transform: translateX(0%); }
+}
+
+.marquee-track {
+  display: flex;
+  width: max-content;
+  animation: marquee-left 35s linear infinite;
+}
+
+.marquee-container:hover .marquee-track {
+  animation-play-state: paused;
+}
+
+.marquee-card {
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s ease, border-color 0.3s ease;
+}
+
+.marquee-card:hover {
+  transform: translateY(-8px) scale(1.02);
+  box-shadow: 0 24px 50px -16px rgba(15, 23, 42, 0.12);
+}
+
+@keyframes sparkle-pop {
+  0%, 100% { transform: scale(0) rotate(0deg); opacity: 0; }
+  50% { transform: scale(1) rotate(180deg); opacity: 1; }
+}
+
+@keyframes wand-wiggle {
+  0%, 100% { transform: rotate(-5deg); }
+  50% { transform: rotate(5deg); }
+}
+
+@keyframes palette-dot {
+  0%, 100% { transform: translate(0, 0); }
+  25% { transform: translate(8px, -6px); }
+  50% { transform: translate(-4px, 8px); }
+  75% { transform: translate(6px, 4px); }
+}
+
+@keyframes cursor-click {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(0.9); }
+}
+
+@keyframes ripple-expand {
+  0% { transform: scale(0); opacity: 0.5; }
+  100% { transform: scale(3); opacity: 0; }
+}
+
+@keyframes rocket-fly {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-12px) rotate(2deg); }
+}
+
+@keyframes flame-pulse {
+  0%, 100% { transform: scaleY(1); }
+  50% { transform: scaleY(1.4); }
+}
+
+@keyframes bar-grow {
+  0%, 100% { transform: scaleY(1); }
+  50% { transform: scaleY(1.6); }
+}
+
+@keyframes float-soft {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+.animate-wand {
+  animation: wand-wiggle 3s ease-in-out infinite;
+}
+
+.animate-sparkle {
+  animation: sparkle-pop 2s ease-in-out infinite;
+}
+
+.animate-palette-dot {
+  animation: palette-dot 4s ease-in-out infinite;
+}
+
+.animate-cursor {
+  animation: cursor-click 2s ease-in-out infinite;
+}
+
+.animate-ripple {
+  animation: ripple-expand 2s ease-out infinite;
+}
+
+.animate-rocket {
+  animation: rocket-fly 3s ease-in-out infinite;
+}
+
+.animate-flame {
+  animation: flame-pulse 0.6s ease-in-out infinite;
+}
+
+.animate-bar {
+  transform-origin: bottom;
+  animation: bar-grow 2s ease-in-out infinite;
+}
+
+.animate-float-soft {
+  animation: float-soft 4s ease-in-out infinite;
+}

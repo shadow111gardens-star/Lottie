@@ -1,0 +1,31 @@
+﻿import assert from 'node:assert/strict';
+import { build } from 'esbuild';
+import { writeFile, unlink } from 'node:fs/promises';
+import { Window } from 'happy-dom';
+const win = new Window({url:'http://localhost:5173/dashboard'});
+for (const key of ['document','navigator','HTMLElement','SVGElement','Element','Node','Event','localStorage']) Object.defineProperty(globalThis,key,{value:win[key],configurable:true});
+globalThis.window=win;
+globalThis.IS_REACT_ACT_ENVIRONMENT=true;
+win.HTMLCanvasElement.prototype.getContext=()=>({fillRect(){},getImageData(){return {data:new Uint8ClampedArray(4)};}});
+const file=new URL('./.dashboard-preview.mjs',import.meta.url);
+const bundle=await build({stdin:{contents:'export {default as Dashboard} from "./src/Dashboard"; export {importLottie} from "./src/editor/lottie"; export {initialScene} from "./src/editor/model";',resolveDir:process.cwd()},bundle:true,platform:'node',format:'esm',packages:'external',loader:{'.css':'empty'},write:false});
+await writeFile(file,bundle.outputFiles[0].text);
+const React=await import('react');
+const {createRoot}=await import('react-dom/client');
+const {MemoryRouter}=await import('react-router-dom');
+let root;
+try {
+ const api=await import(file.href);
+ const {scene}=api.importLottie({v:'5.12.2',fr:30,ip:0,op:90,w:200,h:200,nm:'Lottie preview',assets:[],layers:[{ty:1,ind:1,nm:'Red solid',ip:0,op:90,st:0,sr:1,sw:100,sh:100,sc:'#ff0000',ks:{p:{k:[20,20]},a:{k:[0,0]},s:{k:[100,100]},r:{k:0},o:{k:100}}}]},'preview.json',{diagnostics:false});
+ localStorage.setItem('kinetic:lottie',JSON.stringify(scene));
+ localStorage.setItem('kinetic:native',JSON.stringify(api.initialScene('Native preview')));
+ const host=document.createElement('div');document.body.append(host);root=createRoot(host);
+ await React.act(async()=>{root.render(React.createElement(React.StrictMode,null,React.createElement(MemoryRouter,null,React.createElement(api.Dashboard))));await new Promise(r=>setTimeout(r,30));});
+ for(let i=0;i<30 && host.querySelectorAll('.pd-preview img').length<2;i++)await React.act(async()=>new Promise(r=>setTimeout(r,30)));
+ assert.equal(host.querySelectorAll('.pd-card').length,2);
+ assert.equal(host.querySelectorAll('.pd-preview img').length,2);
+ const image=host.querySelector('[data-project-id="lottie"] img');
+ assert.match(decodeURIComponent(image.src),/rgb\(255,0,0\)|#ff0000/i);
+ assert.equal(document.querySelectorAll('body > div').length,1,'Offscreen renderers cleaned up');
+ console.log('PASS Dashboard renders Lottie and native thumbnails without crashing under StrictMode');
+} finally {if(root)await React.act(async()=>root.unmount());await unlink(file);win.happyDOM.abort();}

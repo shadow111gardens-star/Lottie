@@ -1,0 +1,928 @@
+﻿.ke-editor {
+  --blue: #087bff;
+  --line: #e9ecf1;
+  --muted: #8a92a2;
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px 28px 12px;
+  background: radial-gradient(ellipse at 48% 30%, #e9edf2, #dfe3e9);
+  color: #20242c;
+  font-family: Arial, sans-serif;
+  font-size: 12px;
+  cursor: default;
+  overflow: hidden;
+}
+.ke-editor * {
+  box-sizing: border-box;
+}
+.ke-editor button,
+.ke-editor a {
+  cursor: pointer;
+}
+.ke-editor button {
+  transition: background 0.12s;
+  color: inherit;
+}
+.ke-editor button:hover {
+  background: #eef3fa;
+}
+.ke-editor button:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+.ke-editor input,
+.ke-editor textarea,
+.ke-editor select {
+  font: inherit;
+  color: inherit;
+  outline: none;
+  min-width: 0;
+}
+.ke-editor input:focus,
+.ke-editor textarea:focus,
+.ke-editor select:focus {
+  box-shadow: 0 0 0 2px #087bff55;
+}
+.ke-editor button:focus-visible,
+.ke-editor a:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+.ke-editor svg {
+  flex-shrink: 0;
+}
+.ke-header {
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  flex-shrink: 0;
+}
+.ke-brand {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+.ke-brand > a:first-child {
+  font-size: 25px;
+  font-weight: 900;
+  letter-spacing: -1.8px;
+  color: #151923;
+  text-decoration: none;
+}
+.ke-brand > a > span {
+  color: var(--blue);
+  font-size: 28px;
+  vertical-align: super;
+  margin-left: 2px;
+}
+.ke-back {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: white;
+  border-radius: 11px;
+  padding: 11px 13px;
+  font-size: 11px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.ke-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 5px;
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 3px 20px #25304b05;
+}
+.ke-icon {
+  width: 31px;
+  height: 31px;
+  border: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 7px;
+  background: transparent;
+  flex-shrink: 0;
+}
+.ke-icon svg {
+  width: 16px;
+  height: 16px;
+  stroke-width: 1.8;
+}
+.ke-icon.active {
+  background: #e7f1ff;
+  color: var(--blue);
+}
+.ke-toolbar > .ke-icon:first-child,
+.ke-transport > .ke-icon:nth-child(2) {
+  background: var(--blue);
+  color: white;
+  box-shadow: 0 2px 7px #087bff25;
+}
+.ke-toolbar i,
+.ke-view-controls i {
+  height: 23px;
+  width: 1px;
+  background: var(--line);
+  margin: 0 5px;
+}
+.ke-save {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 15px;
+  background: white;
+  border-radius: 12px;
+  color: #727b8b;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.ke-save > span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #0ccba0;
+}
+.ke-workspace {
+  display: grid;
+  grid-template-columns: 248px minmax(0, 1fr) 264px;
+  gap: 14px;
+  flex: 1;
+  min-height: 180px;
+}
+.ke-panel {
+  background: #ffffffed;
+  border-radius: 16px;
+  overflow: hidden;
+}
+.ke-layers {
+  display: flex;
+  flex-direction: column;
+  padding: 10px 8px;
+}
+.ke-panel-title {
+  font-weight: 600;
+  font-size: 13px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 8px;
+  height: 36px;
+  flex-shrink: 0;
+}
+.ke-scene-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 8px;
+  border: 0;
+  background: transparent;
+  border-radius: 7px;
+  width: 100%;
+  text-align: left;
+  margin: 4px 0;
+}
+.ke-scene-row > span,
+.ke-layer-name > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+.ke-scene-row small {
+  color: #6594d1;
+}
+.ke-editor .selected {
+  background: #deedff;
+  color: #174273;
+}
+.ke-layer-list {
+  overflow: auto;
+  flex: 1;
+  min-height: 70px;
+  padding-top: 5px;
+}
+.ke-layer-row {
+  display: flex;
+  align-items: center;
+  height: 33px;
+  padding-left: 17px;
+  border-radius: 6px;
+}
+.ke-layer-name {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: none;
+  border: 0;
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  font-size: 11px;
+  height: 100%;
+}
+.ke-layer-row .ke-icon {
+  width: 24px;
+  height: 27px;
+  color: #9ca4b0;
+}
+.ke-layer-row .ke-icon svg {
+  width: 12px;
+  height: 12px;
+}
+.ke-layer-footer {
+  display: flex;
+  border-top: 1px solid var(--line);
+  padding: 8px 6px 0;
+  gap: 9px;
+}
+.ke-hint {
+  font-size: 11px;
+  line-height: 1.8;
+  color: var(--muted);
+  margin: 12px 8px;
+}
+.ke-canvas-area {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+}
+.ke-stage {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: none;
+  user-select: none;
+  padding-bottom: 20px;
+}
+.ke-stage.panning {
+  cursor: grab;
+}
+.ke-artboard {
+  position: relative;
+  flex-shrink: 0;
+  outline: 1px solid var(--blue);
+  box-shadow: 0 8px 30px #51607908;
+}
+.ke-artboard:before,
+.ke-artboard:after {
+  content: "";
+  position: absolute;
+  z-index: 2;
+  width: 9px;
+  height: 9px;
+  border: 1px solid var(--blue);
+  background: white;
+  border-radius: 50%;
+  pointer-events: none;
+}
+.ke-artboard:before {
+  left: -5px;
+  top: -5px;
+}
+.ke-artboard:after {
+  right: -5px;
+  bottom: -5px;
+}
+.ke-artboard.preview {
+  outline: none;
+}
+.ke-artboard.preview:before,
+.ke-artboard.preview:after {
+  display: none;
+}
+.ke-frame-label {
+  position: absolute;
+  left: 0;
+  top: -33px;
+  background: var(--blue);
+  color: #fff;
+  padding: 8px 11px;
+  border-radius: 7px;
+  font-size: 11px;
+  display: flex;
+  gap: 35px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.ke-frame-label span {
+  font-size: 10px;
+  opacity: 0.7;
+}
+.ke-reset-view {
+  position: absolute;
+  right: 12px;
+  bottom: 13px;
+  border: 0;
+  background: #ffffffaa;
+  padding: 9px 12px;
+  border-radius: 8px;
+  font-size: 11px;
+  color: #70798a !important;
+}
+.ke-view-controls {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  padding: 5px;
+  gap: 6px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 3px 12px #313c5205;
+}
+.ke-view-controls > span {
+  font-size: 11px;
+  min-width: 34px;
+  text-align: center;
+}
+.ke-view-controls > button:not(.ke-icon) {
+  border: 0;
+  border-radius: 6px;
+  padding: 8px;
+  background: #f3f5f8;
+  font-size: 11px;
+}
+.ke-muted {
+  color: #9097a6;
+  padding: 0 6px;
+}
+.ke-inspector {
+  overflow: auto;
+  padding: 12px 16px;
+  scrollbar-width: thin;
+}
+.ke-inspector .ke-panel-title {
+  padding: 0;
+  height: 30px;
+  margin-bottom: 8px;
+}
+.ke-badge {
+  font-size: 10px;
+  color: #8790a0;
+  font-weight: 400;
+  text-transform: capitalize;
+}
+.ke-name-input {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  font-weight: 600 !important;
+  padding: 8px 0;
+  margin-bottom: 8px;
+}
+.ke-section-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #7c8494;
+  font-size: 11px;
+  margin: 14px 0 10px;
+}
+.ke-section-label span {
+  font-size: 10px;
+  color: #a0a6b1;
+}
+.ke-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.ke-number {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px;
+  background: #f4f5f7;
+  border: 1px solid #eef0f3;
+  border-radius: 7px;
+  min-width: 0;
+  height: 32px;
+}
+.ke-number > span {
+  color: #9299a6;
+  font-size: 11px;
+  white-space: nowrap;
+  text-transform: capitalize;
+}
+.ke-number input {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: right;
+  font-size: 12px;
+  appearance: textfield;
+}
+.ke-number input::-webkit-inner-spin-button {
+  appearance: none;
+}
+.ke-animated-field {
+  display: flex;
+  gap: 1px;
+  min-width: 0;
+}
+.ke-animated-field .ke-number {
+  flex: 1;
+}
+.ke-animated-field .ke-icon {
+  width: 20px;
+}
+.ke-animated-field .ke-icon svg {
+  width: 10px;
+}
+.ke-color {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0;
+  font-size: 11px;
+  color: #7b8494;
+}
+.ke-color input[type="color"] {
+  margin-left: auto;
+  width: 25px;
+  height: 25px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 2px;
+  background: white;
+  cursor: pointer;
+}
+.ke-color > span {
+  font-size: 10px;
+  min-width: 64px;
+}
+.ke-color .ke-number {
+  width: 128px;
+}
+.ke-toggle {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px;
+  margin: 16px 0;
+}
+.ke-toggle input {
+  accent-color: var(--blue);
+  width: 16px;
+  height: 16px;
+}
+.ke-shortcuts {
+  margin: 20px 0;
+  color: #8d95a4;
+  font-size: 10px;
+}
+.ke-shortcuts > span {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 12px 0;
+}
+.ke-shortcuts kbd {
+  font-family: inherit;
+  background: #f4f5f7;
+  border-radius: 4px;
+  padding: 3px 5px;
+  font-size: 9px;
+}
+.ke-export {
+  border-top: 1px solid var(--line);
+  margin-top: 18px;
+  padding-top: 3px;
+}
+.ke-export button,
+.ke-key-editor > button {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--line);
+  background: #f5f6f8;
+  padding: 9px;
+  border-radius: 7px;
+  margin: 7px 0;
+  font-size: 11px;
+}
+.ke-text-label {
+  display: block;
+  font-size: 11px;
+  color: #8790a0;
+  margin: 14px 0;
+}
+.ke-text-label textarea {
+  width: 100%;
+  min-height: 60px;
+  padding: 10px;
+  margin-top: 7px;
+  resize: vertical;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f5f6f8;
+}
+.ke-inspector fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+.ke-key-editor select {
+  width: 100%;
+  margin-top: 8px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #f5f6f8;
+}
+.ke-timeline {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  min-height: 180px;
+}
+.ke-resize-timeline {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 5px;
+  cursor: ns-resize;
+  z-index: 5;
+}
+.ke-transport {
+  height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 14px;
+  border-bottom: 1px solid var(--line);
+  flex-shrink: 0;
+}
+.ke-time {
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 0 7px;
+  white-space: nowrap;
+}
+.ke-time > span {
+  color: #8b92a1;
+  font-weight: 400;
+}
+.ke-timeline-tip {
+  color: #a2a8b3;
+  font-size: 10px;
+  margin-left: auto;
+  margin-right: 15px;
+}
+.ke-transport .ke-number {
+  width: 136px;
+  flex-shrink: 0;
+  height: 28px;
+  border: 0;
+}
+.ke-tracks {
+  overflow: auto;
+  flex: 1;
+  min-height: 0;
+  scrollbar-width: thin;
+  padding-right: 26px;
+}
+.ke-ruler-row,
+.ke-track-row,
+.ke-property-row {
+  display: grid;
+  grid-template-columns: 248px minmax(300px, 1fr);
+}
+.ke-ruler-row {
+  height: 31px;
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  background: white;
+}
+.ke-track-label {
+  border-right: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px;
+  min-width: 0;
+  font-size: 11px;
+}
+.ke-track-label > button {
+  border: 0;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 11px;
+  text-align: left;
+}
+.ke-ruler-row .ke-track-label {
+  color: #6a7486;
+  justify-content: space-between;
+}
+.ke-ruler-row .ke-track-label span {
+  font-size: 9px;
+  color: #a1a8b3;
+}
+.ke-ruler {
+  position: relative;
+  border-bottom: 1px solid var(--line);
+  margin-left: 16px;
+  background: repeating-linear-gradient(
+      to right,
+      transparent 0,
+      transparent calc(2.083% - 1px),
+      #dce2eb calc(2.083% - 1px),
+      #dce2eb 2.083%
+    )
+    bottom/100% 6px no-repeat;
+  cursor: ew-resize;
+  touch-action: none;
+}
+.ke-ruler > span {
+  position: absolute;
+  top: 5px;
+  font-size: 9px;
+  color: #949ead;
+}
+.ke-ruler > span:last-of-type {
+  transform: translateX(-100%);
+}
+.ke-playhead-head {
+  position: absolute;
+  width: 11px;
+  height: 11px;
+  bottom: 0;
+  border-radius: 50%;
+  background: var(--blue);
+  transform: translateX(-50%);
+  z-index: 5;
+}
+.ke-track-row {
+  height: 29px;
+}
+.ke-track {
+  position: relative;
+  margin-left: 16px;
+  border-bottom: 1px solid #f2f4f7;
+  min-width: 0;
+  touch-action: none;
+}
+.ke-clip {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 9px;
+  height: 12px;
+  border-radius: 4px;
+  background: linear-gradient(#dfe2e7, #d4d8df);
+  cursor: pointer;
+  border-left: 3px solid #c4cad4;
+  border-right: 3px solid #c4cad4;
+}
+.ke-property-row {
+  height: 22px;
+}
+.ke-property-row .ke-track-label {
+  padding-left: 54px;
+  color: #9299a6;
+  justify-content: space-between;
+  font-size: 10px;
+}
+.ke-property-row .ke-icon {
+  height: 20px;
+  width: 20px;
+}
+.ke-property-row .ke-icon svg {
+  height: 10px;
+  width: 10px;
+}
+.ke-playhead {
+  position: absolute;
+  top: 0;
+  bottom: -1px;
+  width: 1px;
+  background: var(--blue);
+  z-index: 2;
+  pointer-events: none;
+}
+.ke-key {
+  position: absolute;
+  top: 7px;
+  width: 7px;
+  height: 7px;
+  transform: translateX(-50%) rotate(45deg);
+  background: #535b67;
+  border: 0;
+  border-radius: 1px;
+  padding: 0;
+  z-index: 3;
+  touch-action: none;
+}
+.ke-key:before {
+  content: "";
+  position: absolute;
+  inset: -5px;
+}
+.ke-key.active {
+  background: var(--blue);
+  box-shadow: 0 0 0 2px #087bff25;
+}
+.ke-toast {
+  position: fixed;
+  bottom: 25px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #202937;
+  color: white;
+  padding: 13px 18px;
+  border-radius: 10px;
+  box-shadow: 0 6px 24px #0002;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  max-width: 80vw;
+  font-size: 12px;
+}
+.ke-toast button {
+  border: 0;
+  background: none;
+  color: white;
+  font-size: 20px;
+}
+@media (min-height: 850px) {
+  .ke-timeline {
+    min-height: 34vh;
+  }
+}
+@media (max-width: 1150px) {
+  .ke-editor {
+    padding: 12px;
+    gap: 12px;
+  }
+  .ke-workspace {
+    grid-template-columns: 205px minmax(0, 1fr) 235px;
+    gap: 10px;
+  }
+  .ke-back {
+    display: none;
+  }
+  .ke-toolbar {
+    gap: 0;
+  }
+  .ke-timeline-tip {
+    display: none;
+  }
+  .ke-transport .ke-number {
+    margin-left: auto;
+  }
+  .ke-ruler-row,
+  .ke-track-row,
+  .ke-property-row {
+    grid-template-columns: 205px minmax(300px, 1fr);
+  }
+  .ke-view-controls .ke-muted {
+    display: none;
+  }
+}
+@media (max-width: 800px) {
+  .ke-workspace {
+    grid-template-columns: 150px minmax(0, 1fr) 205px;
+  }
+  .ke-brand > a:first-child {
+    font-size: 19px;
+  }
+  .ke-save {
+    display: none;
+  }
+  .ke-header {
+    gap: 5px;
+  }
+  .ke-toolbar .ke-icon {
+    width: 28px;
+  }
+  .ke-layer-row {
+    padding-left: 0;
+  }
+  .ke-layer-row .ke-icon {
+    width: 20px;
+  }
+  .ke-inspector {
+    padding: 10px;
+  }
+  .ke-view-controls {
+    gap: 0;
+  }
+  .ke-ruler-row,
+  .ke-track-row,
+  .ke-property-row {
+    grid-template-columns: 150px minmax(300px, 1fr);
+  }
+}
+/* Interaction affordances reuse the existing workspace styling. */
+.ke-pen-help {
+  position: absolute;
+  bottom: 52px;
+  left: 12px;
+  right: 12px;
+  text-align: center;
+  pointer-events: none;
+  color: #65728a;
+  font-size: 10px;
+}
+.ke-layer-name input {
+  width: 100%;
+  background: white;
+  border: 1px solid #087bff;
+  border-radius: 3px;
+  padding: 3px;
+}
+.ke-menu-wrap {
+  position: relative;
+}
+.ke-file-menu {
+  position: absolute;
+  top: 38px;
+  right: 0;
+  z-index: 30;
+  min-width: 190px;
+  padding: 5px;
+  background: #fff;
+  border: 1px solid #e1e5ed;
+  border-radius: 7px;
+  box-shadow: 0 8px 24px #15223b20;
+}
+.ke-file-menu button {
+  display: block;
+  width: 100%;
+  padding: 9px 10px;
+  text-align: left;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #29344a;
+  font-size: 12px;
+  cursor: pointer;
+}
+.ke-file-menu button:hover,
+.ke-file-menu button:focus-visible {
+  background: #edf4ff;
+}
+.ke-import-report {
+  position: absolute;
+  bottom: 45px;
+  right: 20px;
+  z-index: 25;
+  max-width: 440px;
+  max-height: 240px;
+  overflow: auto;
+  background: white;
+  border: 1px solid #e1e5ed;
+  border-radius: 7px;
+  box-shadow: 0 4px 20px #15223b20;
+  padding: 12px 30px 12px 12px;
+  font-size: 12px;
+  color: #29344a;
+}
+.ke-import-report > button {
+  position: absolute;
+  right: 7px;
+  top: 6px;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.ke-import-report summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.ke-import-report li {
+  margin: 8px 0;
+}
+
+/* Source frames occupy the existing timeline; every frame remains independently selectable. */
+.ke-media-row { height: 78px; }
+.ke-media-frames { display: flex; gap: 3px; overflow-x: auto; min-width: 0; padding: 3px 0 3px 16px; }
+.ke-media-frames button { flex: 0 0 90px; border: 1px solid var(--line); border-radius: 4px; background: white; padding: 2px; overflow: hidden; cursor: pointer; }
+.ke-media-frames button[aria-pressed="true"] { border-color: var(--blue); box-shadow: inset 0 0 0 1px var(--blue); }
+.ke-media-frames img { display: block; width: 84px; height: 42px; object-fit: contain; }
+.ke-media-frames span { display: block; font-size: 9px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

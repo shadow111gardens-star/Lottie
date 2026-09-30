@@ -1,0 +1,2 @@
+FFmpeg WebAssembly @ffmpeg/core 0.12.10, GPL-2.0-or-later. Source and build scripts: https://github.com/ffmpegwasm/ffmpeg.wasm/tree/v0.12.10
+FFmpeg source: https://github.com/ffmpegwasm/ffmpeg.wasm/tree/main/build
