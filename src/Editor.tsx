@@ -602,9 +602,6 @@ function Workspace({ projectId }: { projectId: string }) {
     <div className="ke-editor">
       <header className="ke-header">
         <div className="ke-brand">
-          <Link to="/dashboard">
-            kinetic<span>✳</span>
-          </Link>
           <Link className="ke-back" to="/dashboard">
             <ArrowLeft size={13} /> Workspace
           </Link>
