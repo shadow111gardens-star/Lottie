@@ -1,0 +1,1 @@
+VTracer @visioncortex/vtracer 1.0.0-alpha.4, MIT OR Apache-2.0. Source: https://github.com/visioncortex/vtracer

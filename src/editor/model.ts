@@ -59,6 +59,7 @@ export type Layer = {
   type:
     "rect" | "ellipse" | "text" | "path" | "line" | "lottie" | "unsupported" | "media";
   media?: MediaSequence;
+  sourceFrame?: { layer: string; frame: string };
   frameImage?: string;
   lottie?: LottieNode;
   x: number;
@@ -102,6 +103,7 @@ export type MediaFrame = {
   durationTicks: string;
   packetDurationTicks?: string;
   image: string;
+  vector?: { status: 'ready'; svg: string } | { status: 'error'; error: string };
 };
 export type MediaSequence = {
   sourceName: string;

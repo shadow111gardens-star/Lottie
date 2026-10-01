@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, Plus, Clock, LayoutGrid, ArrowUpRight, Upload, Sparkles, MoreHorizontal, Pencil, Copy, Trash2, X, Film, FileCode2, ArrowDownWideNarrow, FolderOpen, Check, HardDrive } from 'lucide-react';
+import { Search, Plus, Clock, LayoutGrid, ArrowUpRight, Upload, LogOut, MoreHorizontal, Pencil, Copy, Trash2, X, Film, FileCode2, ArrowDownWideNarrow, FolderOpen, Check } from 'lucide-react';
 import { exportSceneSvg, validateScene } from './editor/io';
 import { importSvg } from './editor/importSvg';
 import { exportRenderedLottieSvg } from './editor/lottieRenderer';
@@ -83,6 +83,28 @@ export default function Dashboard() {
   const [notice, setNotice] = useState<{ text: string; undo?: string; error?: boolean } | null>(null);
   const [now, setNow] = useState(Date.now());
   const [importing, setImporting] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
+  const [accountName, setAccountName] = useState('shadow');
+  useEffect(() => {
+    let disposed = false;
+    let unsubscribe: (() => void) | undefined;
+    void Promise.all([import('./lib/firebase'), import('firebase/auth')]).then(([{ auth }, { onAuthStateChanged }]) => {
+      if (!disposed && auth) unsubscribe = onAuthStateChanged(auth, user => setAccountName(user?.displayName || user?.email?.split('@')[0] || 'shadow'));
+    }).catch((error: unknown) => console.warn('Could not load account details:', error));
+    return () => { disposed = true; unsubscribe?.(); };
+  }, []);
+  const logout = async () => {
+    if (loggingOut) return;
+    setLoggingOut(true);
+    try {
+      const [{ auth }, { signOut }] = await Promise.all([import('./lib/firebase'), import('firebase/auth')]);
+      if (auth) await signOut(auth);
+      navigate('/', { replace: true });
+    } catch (error) {
+      setNotice({ text: error instanceof Error ? error.message : 'Could not log out. Please try again.', error: true });
+      setLoggingOut(false);
+    }
+  };
   const fileInput = useRef<HTMLInputElement>(null);
   const refresh = () => { try { const result = readProjects(); setProjects(result.projects); setInvalid(result.invalid); setLoadError(''); } catch { setLoadError('Browser storage is unavailable. Allow local storage to access your projects.'); } };
   useEffect(() => {
@@ -117,9 +139,9 @@ export default function Dashboard() {
   const source = search.trim() || activeTab === 'all' ? projects : recent;
   const filtered = sortProjects(source.filter(p => `${p.scene.name} ${p.type}`.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase())), sort);
   return <div className="pd-dashboard">
-    <aside className="pd-sidebar"><div className="pd-account"><div className="pd-avatar">S</div><div><strong>shadow</strong><span>Personal workspace</span></div></div><div className="pd-nav-label">WORKSPACE</div>
+    <aside className="pd-sidebar"><div className="pd-account"><div className="pd-avatar">{accountName.charAt(0).toUpperCase()}</div><div><strong>{accountName}</strong><span>Personal workspace</span></div></div><div className="pd-nav-label">WORKSPACE</div>
       <nav aria-label="Project navigation"><button className={activeTab === 'recents' ? 'is-selected' : ''} onClick={() => { setActiveTab('recents'); setMenu(null); }}><Clock size={18} />Recents<span>{recent.length}</span></button><button className={activeTab === 'all' ? 'is-selected' : ''} onClick={() => { setActiveTab('all'); setMenu(null); }}><LayoutGrid size={18} />All projects<span>{projects.length}</span></button></nav>
-      <div className="pd-sidebar-note"><Sparkles size={19} /><h3>Your next idea<br />should move.</h3><p>Start with a blank canvas.<br />Make something worth watching.</p><button onClick={create}>Create an animation <ArrowUpRight size={15} /></button></div><div className="pd-local"><HardDrive size={13} /><span>Saved on this device</span><i /></div>
+      <button type="button" className="pd-logout" onClick={() => void logout()} disabled={loggingOut} aria-busy={loggingOut}><LogOut size={20} strokeWidth={2.2} /><span>{loggingOut ? 'Logging out…' : 'Log out'}</span></button>
     </aside>
     <main className="pd-main"><div className="pd-content"><header className="pd-header"><div><h1>{activeTab === 'recents' ? 'Recents' : 'All projects'}</h1><p>{projects.length ? 'Pick up where you left off, or start something new.' : 'A home for your ideas in motion.'}</p></div><div className="pd-header-actions"><div className="pd-search"><Search size={17} /><input aria-label="Search projects" placeholder="Search projects" value={search} onChange={e => setSearch(e.target.value)} />{search && <button aria-label="Clear search" onClick={() => setSearch('')}><X size={14} /></button>}</div><button className="pd-button" onClick={() => fileInput.current?.click()} disabled={importing}><Upload size={16} />{importing ? 'Importing…' : 'Import'}</button><button className="pd-button pd-primary" onClick={create}><Plus size={18} />New project</button></div></header>
       <div className="pd-list-toolbar"><div><strong>{filtered.length}</strong> {filtered.length === 1 ? 'project' : 'projects'}{search.trim() && <span> matching “{search.trim()}”</span>}{!search.trim() && activeTab === 'recents' && projects.length > 12 && <span> · most recently opened or edited</span>}</div><label className="pd-sort"><ArrowDownWideNarrow size={15} /><select aria-label="Sort projects" value={sort} onChange={e => setSort(e.target.value as Sort)}><option value="activity">Recently active</option><option value="edited">Last edited</option><option value="created">Newest created</option><option value="name-asc">Name: A–Z</option><option value="name-desc">Name: Z–A</option></select></label></div>
