@@ -1,7 +1,7 @@
 import { createContext, useContext, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
-import { auth } from '../lib/firebase';
+import { getFirebaseAuth } from '../lib/firebase';
 
 const SignInContext = createContext<{ busy: boolean; signIn: () => void } | null>(null);
 
@@ -14,6 +14,7 @@ export function googleSignInError(error: unknown): string | null {
   if (code === 'auth/invalid-api-key' || code === 'auth/api-key-not-valid.-please-pass-a-valid-api-key.') return 'The Firebase API key is invalid. Update the web app configuration to enable Google sign-in.';
   if (code === 'auth/network-request-failed') return 'Could not connect to Google sign-in. Check your connection and try again.';
   if (code === 'auth/account-exists-with-different-credential') return 'This email already uses another sign-in provider. Sign in with that provider first.';
+  if (error instanceof Error && /Missing Firebase configuration|Firebase app configuration/i.test(error.message)) return `${error.message} Restart Vite after updating .env.`;
   return 'Google sign-in could not be completed. Please try again.';
 }
 
@@ -25,14 +26,13 @@ export function GoogleSignInProvider({ children }: { children: ReactNode }) {
   const signIn = () => {
     if (pending.current) return;
     setError(null);
-    if (!auth) { setError('Firebase Authentication is unavailable. Check the web app configuration.'); return; }
     pending.current = true;
     setBusy(true);
     const provider = new GoogleAuthProvider();
     provider.setCustomParameters({ prompt: 'select_account' });
     // Invoke directly from the click to retain the browser's popup permission.
     try {
-      void signInWithPopup(auth, provider)
+      void signInWithPopup(getFirebaseAuth(), provider)
       .then(() => navigate('/dashboard', { replace: true }))
       .catch((cause: unknown) => setError(googleSignInError(cause)))
       .finally(() => { pending.current = false; setBusy(false); });

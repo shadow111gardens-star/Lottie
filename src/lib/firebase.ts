@@ -26,14 +26,15 @@ function reportInitializationError(error: unknown) {
 }
 
 try {
-  for (const [name, value] of Object.entries(firebaseConfig)) {
+  for (const name of ['apiKey', 'authDomain', 'projectId', 'appId'] as const) {
+    const value = firebaseConfig[name];
     if (typeof value !== 'string' || !value.trim()) {
       throw new Error(`Missing Firebase configuration: ${name}`);
     }
   }
   // Whitespace from copied environment values is not part of the configuration.
   for (const name of Object.keys(firebaseConfig) as (keyof typeof firebaseConfig)[]) {
-    firebaseConfig[name] = firebaseConfig[name].trim();
+    if (typeof firebaseConfig[name] === 'string') firebaseConfig[name] = firebaseConfig[name].trim();
   }
   app = getApps().some((existingApp) => existingApp.name === '[DEFAULT]')
     ? getApp()
@@ -52,6 +53,19 @@ if (app) {
     db = getFirestore(app);
   } catch (error) {
     reportInitializationError(error);
+  }
+}
+
+/** Recover from a transient initialization failure and expose the actual cause. */
+export function getFirebaseAuth(): Auth {
+  if (auth) return auth;
+  if (!app) throw firebaseError ?? new Error('Firebase app configuration is missing.');
+  try {
+    auth = getAuth(app);
+    return auth;
+  } catch (error) {
+    reportInitializationError(error);
+    throw firebaseError;
   }
 }
 

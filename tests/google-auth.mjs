@@ -16,7 +16,7 @@ const bundle = await build({
     build.onResolve({ filter: /\/lib\/firebase$/ }, () => ({ path: 'config', namespace: 'auth-test' }));
     build.onResolve({ filter: /^firebase\/auth$/ }, () => ({ path: 'sdk', namespace: 'auth-test' }));
     build.onLoad({ filter: /.*/, namespace: 'auth-test' }, args => ({ contents: args.path === 'config'
-      ? 'export let auth = { name: "test-auth" }; export function setAuth(value) { auth = value; }'
+      ? 'export let auth = { name: "test-auth" }; export function setAuth(value) { auth = value; } export function getFirebaseAuth() { if (!auth) throw new Error("Firebase app configuration is missing."); return auth; }'
       : 'export class GoogleAuthProvider { providerId = "google.com"; setCustomParameters(params) { this.params = params; } } export const signInWithPopup = (...args) => globalThis.authPopupTest(...args);' }));
   } }],
 });
@@ -52,7 +52,7 @@ try {
   await React.act(async () => settle.reject({ code: 'auth/popup-closed-by-user' }));
   assert.equal(host.querySelector('[role="alert"]'), null);
   await render('missing'); api.setAuth(null); await click(host.querySelector('button'));
-  assert.match(host.querySelector('[role="alert"]').textContent, /Authentication is unavailable/);
+  assert.match(host.querySelector('[role="alert"]').textContent, /configuration is missing/);
   const source = await readFile('src/App.tsx', 'utf8');
   assert.equal((source.match(/<GoogleSignInButton className=/g) ?? []).length, 3);
   console.log('PASS All three buttons: Google provider, pending state, duplicate-click protection, success navigation, invalid config and popup cancellation');
