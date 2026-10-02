@@ -5,9 +5,12 @@ The existing Firebase Auth session owns all projects. Firestore documents live a
 Owner-only rules are in `firestore.rules` and deployed to the configured project.
 
 `npm run dev` and `npm run preview` include the authenticated `/api/storage` routes.
-For production, run `npm run build` followed by `npm start`. The Node server serves
-both the app and its API. Hosting only `dist` on a static host will not provide the
-storage API. Existing environment variables are read on the server; R2 secrets
+Vercel deploys `api/storage.mjs`; `vercel.json` routes `/api/storage/{projectId}`
+and `/copy` to that function before the editor SPA fallback. The rewrite preserves
+the `path` query and passes the entire project ID (including `new-`) unchanged.
+The function reuses `server/storage.mjs`; no separate storage implementation exists.
+For standalone Node hosting, run `npm run build` followed by `npm start`.
+Hosting only `dist` will not provide the storage API. Existing environment variables are read on the server; R2 secrets
 are never sent to Vite's client bundle. Firebase Storage is not used.
 
 R2 files are stored under `users/{uid}/projects/{projectId}/` in `source`, `frames`,
@@ -52,3 +55,15 @@ Emulator tests use the local Firebase CLI. On Windows the runner downloads and
 verifies a portable Java 21 runtime into the system temporary directory when needed;
 it does not change system Java settings. A real browser Google popup login is a
 separate manual check and is not replaced by the emulator sign-in test.
+
+Vercel diagnostics (temporary, disable with server `STORAGE_DIAGNOSTICS=0`) log
+request ID, route, verified UID, project ID, derived object key, bucket, stage and
+object existence determined by actual R2 GET/PUT results. They do not log tokens,
+headers or credentials. `X-SVGForge-Storage: authenticated-r2` identifies handler
+responses; JSON codes distinguish `PROJECT_NOT_FOUND`, `ASSET_NOT_FOUND` and
+`STORAGE_ROUTE_NOT_FOUND`. Bucket configuration must equal `svgforge-assets`.
+
+Vercel limits function request/response payloads to 4.5 MB. This route fix does
+not change the existing binary upload protocol; files above that platform limit
+require a separate follow-up to extend this same authenticated R2 handler with
+multipart transfer. The standalone Node server retains its existing upload limit.

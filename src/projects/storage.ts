@@ -22,7 +22,9 @@ export async function storageRequest(user: User, id: string, method: string, pat
   assertOwner(user);
   if (!response.ok) {
     const message = await response.json().catch(() => null);
-    throw new Error(message?.error || `Project storage failed (${response.status}).`);
+    throw new Error(message?.error || (response.status === 404
+      ? 'The project storage API is missing from this deployment. Deploy the Vercel storage function and routing configuration.'
+      : `Project storage request failed (${response.status}). Your local changes are preserved.`));
   }
   return response;
 }

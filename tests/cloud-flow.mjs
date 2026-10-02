@@ -10,6 +10,7 @@ import { initializeApp, deleteApp } from 'firebase/app';
 import { connectAuthEmulator, signInWithCredential, GoogleAuthProvider, signOut, getAuth } from 'firebase/auth';
 import { connectFirestoreEmulator, doc, getDoc, setDoc, getFirestore, terminate } from 'firebase/firestore';
 import { createStorageApi } from '../server/storage.mjs';
+import vercelStorage from '../api/storage.mjs';
 import { VTracerWorker } from './vtracer-worker.mjs';
 import { MemoryS3 } from './storage-fixture.mjs';
 import 'fake-indexeddb/auto';
@@ -31,7 +32,15 @@ const [host, port] = process.env.FIRESTORE_EMULATOR_HOST.split(':');
 connectFirestoreEmulator(api.db, host, Number(port));
 const fixture = new MemoryS3();
 const application = express();
-application.use('/api/storage', createStorageApi(process.env.SVGFORGE_TEST_REAL_R2 === '1' ? {} : { s3: fixture, bucket: 'test-bucket' }));
+if (process.env.SVGFORGE_TEST_REAL_R2 === '1') {
+  // Apply the exact Vercel route rewrite, including preservation of path query.
+  application.use('/api/storage', (req, res, next) => {
+    const url = new URL(req.url, 'http://storage.internal');
+    url.searchParams.set('__storageRoute', url.pathname.slice(1));
+    req.url = `/api/storage?${url.searchParams}`;
+    vercelStorage(req, res, next);
+  });
+} else application.use('/api/storage', createStorageApi({ s3: fixture, bucket: 'test-bucket' }));
 const server = application.listen(0, '127.0.0.1');
 await new Promise(resolve => server.once('listening', resolve));
 const origin = `http://127.0.0.1:${server.address().port}`;
@@ -55,6 +64,14 @@ try {
   assert.equal(document.ownerId, user.uid); assert.equal(document.projectId, id);
   assert.deepEqual((await api.loadProject(id)).layers, []);
   console.log('PASS Google-provider emulator login → UID → blank New Project → owner Firestore document');
+  const svgAsset = '<svg xmlns="http://www.w3.org/2000/svg"><path fill="#123456" d="M0 0L10 0L10 10Z"/></svg>';
+  const sceneKey = await api.upload(user, id, 'project/route-check/scene.svg', new Blob([svgAsset], { type: 'image/svg+xml' }));
+  assert.equal(sceneKey, `users/${user.uid}/projects/${id}/project/route-check/scene.svg`);
+  assert.equal(await (await api.assetBlob(user, id, sceneKey)).text(), svgAsset);
+  const missingAsset = await globalThis.fetch(`/api/storage/${id}?path=project/route-check/missing.svg`, { headers: { Authorization: `Bearer ${await user.getIdToken()}` } });
+  assert.equal(missingAsset.status, 404);
+  assert.equal((await missingAsset.json()).code, 'ASSET_NOT_FOUND');
+  console.log('PASS Vercel rewrite preserves new-project ID/path → scene.svg upload/read 200; missing R2 asset returns specific JSON');
   // Encode and decode actual video with FFmpeg; extraction implementation is untouched.
   globalThis.self = { location: { href: 'file:///ffmpeg-core.js' } };
   const create = createRequire(import.meta.url)('@ffmpeg/core');
