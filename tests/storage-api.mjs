@@ -22,7 +22,8 @@ try {
   const loaded = await request('project-one', 'GET', 'frames/001.svg'); assert.equal(await loaded.text(), svg);
   assert.match(loaded.headers.get('cache-control'), /no-store/);
   assert.equal((await request('project-one', 'GET', 'frames/001.svg', undefined, 'bob')).status, 404);
-  assert.equal((await request('project-one', 'DELETE', undefined, undefined, 'bob')).status, 404);
+  assert.equal((await request('project-one', 'DELETE', undefined, undefined, 'bob')).status, 200);
+  assert.ok(fixture.objects.has('users/alice/projects/project-one/frames/001.svg'), 'An idempotent delete cannot access another owner’s files');
   const copied = await request('project-one/copy', 'POST', undefined, JSON.stringify({ projectId: 'project-copy', uid: 'bob' }));
   assert.equal(copied.status, 200); assert.equal(await (await request('project-copy', 'GET', 'frames/001.svg')).text(), svg);
   assert.equal((await request('project-one/copy', 'POST', undefined, JSON.stringify({ projectId: 'project-two' }))).status, 404);
@@ -32,6 +33,7 @@ try {
   assert.ok(fixture.objects.has('users/alice/projects/project-one/frames/001.svg'));
   fixture.failDelete = false;
   assert.equal((await request('project-one', 'DELETE')).status, 200);
+  assert.equal((await request('project-one', 'DELETE')).status, 200, 'Repeated deletion succeeds');
   assert.equal((await request('project-one', 'GET', 'frames/001.svg')).status, 404);
   assert.equal(await (await request('project-copy', 'GET', 'frames/001.svg')).text(), svg);
   console.log('PASS Storage API: authentication, UID ownership, traversal, upload/read, independent copy, safe delete failure/retry and private responses');

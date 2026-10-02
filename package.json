@@ -16,6 +16,8 @@
     "start": "node server/index.mjs",
     "test:cloud": "node scripts/test-cloud.mjs",
     "test:storage": "node tests/storage-api.mjs",
+    "test:runtime": "node --no-experimental-require-module tests/server-runtime.mjs",
+    "test:project-actions": "node tests/project-actions-ui.mjs",
     "test:vector": "node tests/vectorization.mjs"
   },
   "dependencies": {
@@ -55,5 +57,13 @@
     "typescript": "5.9.3",
     "vite": "7.3.2",
     "vite-plugin-singlefile": "2.3.0"
+  },
+  "engines": {
+    "node": "22.x"
+  },
+  "overrides": {
+    "jwks-rsa": {
+      "jose": "5.10.0"
+    }
   }
 }

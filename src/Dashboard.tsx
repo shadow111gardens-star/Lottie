@@ -5,7 +5,8 @@ import { exportSceneSvg, validateScene } from './editor/io';
 import { importSvg } from './editor/importSvg';
 import { exportRenderedLottieSvg } from './editor/lottieRenderer';
 import { initialScene } from './editor/model';
-import { PROJECTS_CHANGED, createProject, deleteProject, duplicateProject, editedLabel, openProject, readProjects, renameProject, restoreProject, sortProjects, type Project, type Sort } from './projects/store';
+import { PROJECTS_CHANGED, createBlankProject, createProject, deleteProject, duplicateProject, editedLabel, openProject, readProjects, renameProject, restoreProject, sortProjects, type Project, type Sort } from './projects/store';
+import { projectStopped } from './projects/lifecycle';
 import './projects/dashboard.css';
 import { getFirebaseAuth } from './lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -126,8 +127,14 @@ export default function Dashboard() {
   }, []);
   useEffect(() => { if (!menu) return; const dismiss = () => setMenu(null); document.addEventListener('pointerdown', dismiss); return () => document.removeEventListener('pointerdown', dismiss); }, [menu]);
   const fail = (error: unknown) => setNotice({ text: error instanceof Error && error.name !== 'QuotaExceededError' ? error.message : 'Could not save this change. Your browser storage may be full.', error: true });
-  const open = async (id: string) => { await openProject(id); navigate(`/editor/${encodeURIComponent(id)}`); };
-  const create = async () => { try { const id = await createProject(); await open(id); } catch (error) { fail(error); void refresh(); } };
+  const open = async (id: string) => { await openProject(id); const user = getFirebaseAuth().currentUser; if (user && !projectStopped(user.uid, id)) navigate(`/editor/${encodeURIComponent(id)}`); };
+  const creating = useRef(false);
+  const create = () => {
+    if (creating.current) return;
+    creating.current = true;
+    try { const project = createBlankProject(); navigate(`/editor/${encodeURIComponent(project.id)}`); }
+    catch (error) { creating.current = false; fail(error); }
+  };
   const action = async (type: Action, project: Project) => {
     setMenu(null);
     try {
@@ -140,7 +147,7 @@ export default function Dashboard() {
     if (!dialog) return;
     try {
       if (dialog.type === 'rename') { await renameProject(dialog.project.id, name); setNotice({ text: 'Project renamed.' }); }
-      else { await deleteProject(dialog.project.id); setNotice({ text: `Deleted “${dialog.project.scene.name}”.`, undo: dialog.project.id }); }
+      else { const project = dialog.project; ++refreshVersion.current; setProjects(items => items.filter(item => item.id !== project.id)); setMenu(null); setDialog(null); navigate('/dashboard', { replace: true }); await deleteProject(project.id); setNotice({ text: `Deleted “${project.scene.name}”.`, undo: project.id }); }
       setDialog(null); refresh();
     } catch (error) { fail(error); }
   };

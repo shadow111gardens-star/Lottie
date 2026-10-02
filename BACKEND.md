@@ -1,5 +1,16 @@
 # SVGForge project persistence
 
+The Vercel Node runtime is pinned to `22.x` through `package.json` engines;
+the API entry remains ESM (`.mjs` and package `type: module`). Firebase Admin
+14.5.0 uses CommonJS jwks-rsa 4.1.0, whose `require('jose')` fails with ESM-only
+jose 6 when the host disables Node's require(esm) feature. The scoped npm
+override uses jose 5.10.0 for jwks-rsa only, retaining its CommonJS export and
+JWK import/export API. Keep this compatibility pin until jwks-rsa releases a
+dynamic-import fix; jose 5 is a legacy compatibility branch, not the current
+upstream feature branch. No authentication or dependency source is patched.
+`npm run test:runtime` runs with require(esm) disabled and verifies signed
+Firebase tokens, signature/claims rejection, JWKS conversion and API startup.
+
 The existing Firebase Auth session owns all projects. Firestore documents live at
 `users/{uid}/projects/{projectId}`. No project operation is allowed while signed out.
 Owner-only rules are in `firestore.rules` and deployed to the configured project.
@@ -26,15 +37,25 @@ Every storage request verifies a Firebase ID token and checks the user's project
 document against Firestore rules. The server derives UID from the verified token,
 validates all relative object paths and never accepts a client-supplied owner UID.
 
+New Project creates its ID and blank editor state synchronously, navigates without
+a loader and starts Firestore creation in the background. A synchronous click
+guard prevents duplicate navigation/creation. Creation failures retry with backoff;
+the editor stays usable. Empty scenes save their small state in Firestore and make
+no R2 requests. Imported files and nonempty scenes retain the existing R2 snapshots.
+
 Autosave waits 1.2 seconds after editing stops and serializes writes per project.
 The existing saved-status control and Ctrl+S also trigger a save. IndexedDB holds
 private owner-scoped drafts; a failed save keeps the draft for reopening. Revision
 checks reject conflicting saves from another session instead of overwriting them.
 Export the editable project to retain a conflicted draft before resolving it.
 
-Duplicate creates its own ID and R2 prefix. Delete first marks the document as
-deleting, removes its R2 objects, then deletes its Firestore record. A failed delete
-retains that record for retry through the existing Delete action. The existing Undo
+Duplicate creates its own ID and R2 prefix. Delete immediately hides the project,
+cancels asset requests and queued saves, clears its cache/drafts and navigates an
+open editor to the dashboard. Owner-scoped deletion tombstones survive refresh.
+R2 and Firestore cleanup run independently; failures retry in the background and
+already-missing documents/assets are successful deletions. R2 DELETE still verifies
+Firebase authentication and derives the object prefix from the verified UID.
+The existing Undo
 notification retains a private in-memory backup and restores assets and state;
 it expires when that dashboard session ends.
 
@@ -42,6 +63,8 @@ Verification:
 
 - `npm run typecheck`, `npm test`, `npm run test:auth`, `npm run test:firebase`.
 - `npm run test:storage`: API authentication, paths, copy/delete and failure checks.
+- `npm run test:project-actions`: instant editor, rapid clicks, open-project deletion
+  navigation and cancellation of its pending autosave.
 - `npm run test:vector`: real VTracer WASM and every-frame/failure/timing checks.
 - `npm run test:cloud`: real Firebase Auth/Firestore emulators, deployed-rule source,
   real FFmpeg and VTracer, R2-compatible test storage, save/reopen and CRUD.

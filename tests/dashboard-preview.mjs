@@ -13,7 +13,7 @@ const bundle=await build({stdin:{contents:'export {default as Dashboard} from ".
   build.onResolve({filter:/projects\/store$/},()=>({path:'store',namespace:'dashboard-test'}));
   build.onResolve({filter:/lib\/firebase$/},()=>({path:'firebase',namespace:'dashboard-test'}));
   build.onResolve({filter:/^firebase\/auth$/},()=>({path:'auth',namespace:'dashboard-test'}));
-  build.onLoad({filter:/.*/,namespace:'dashboard-test'},args=>({contents:args.path==='firebase'?'export const auth={currentUser:{uid:"preview-user"}};export function getFirebaseAuth(){return auth;}':args.path==='auth'?'export function onAuthStateChanged(auth, callback){queueMicrotask(()=>callback({uid:"preview-user"}));return ()=>{};}export async function signOut(){}':`export const PROJECTS_CHANGED='kinetic-projects-changed';export async function readProjects(){return {projects:globalThis.previewProjects,invalid:0};}export function sortProjects(projects){return projects;}export function editedLabel(){return 'Edited just now';}export async function createProject(){}export async function deleteProject(){}export async function duplicateProject(){}export async function openProject(){}export async function renameProject(){}export async function restoreProject(){}`}));
+  build.onLoad({filter:/.*/,namespace:'dashboard-test'},args=>({contents:args.path==='firebase'?'export const auth={currentUser:{uid:"preview-user"}};export function getFirebaseAuth(){return auth;}':args.path==='auth'?'export function onAuthStateChanged(auth, callback){queueMicrotask(()=>callback({uid:"preview-user"}));return ()=>{};}export async function signOut(){}':`export const PROJECTS_CHANGED='kinetic-projects-changed';export async function readProjects(){return {projects:globalThis.previewProjects,invalid:0};}export function sortProjects(projects){return projects;}export function editedLabel(){return 'Edited just now';}export function createBlankProject(){globalThis.blankCreates=(globalThis.blankCreates||0)+1;return {id:"instant-blank"};}export async function createProject(){}export async function deleteProject(){}export async function duplicateProject(){}export async function openProject(){}export async function renameProject(){}export async function restoreProject(){}`}));
  }
 }]});
 await writeFile(file,bundle.outputFiles[0].text);
@@ -33,5 +33,8 @@ try {
  const image=host.querySelector('[data-project-id="lottie"] img');
  assert.match(decodeURIComponent(image.src),/rgb\(255,0,0\)|#ff0000/i);
  assert.equal(document.querySelectorAll('body > div').length,1,'Offscreen renderers cleaned up');
+ await React.act(async()=>{ const button=[...host.querySelectorAll('button')].find(button=>button.textContent.includes('New project')); button.click(); button.click(); button.click(); });
+ assert.equal(globalThis.blankCreates,1,'Rapid clicks create only one project');
+ console.log('PASS Instant local New Project handler rejects rapid duplicate clicks');
  console.log('PASS Dashboard renders Lottie and native thumbnails without crashing under StrictMode');
 } finally {if(root)await React.act(async()=>root.unmount());await unlink(file);win.happyDOM.abort();}

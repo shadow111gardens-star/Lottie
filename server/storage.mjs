@@ -139,7 +139,10 @@ export function createStorageApi(options = {}) {
   router.delete('/:projectId', async (req, res, next) => {
     try {
       const prefix = projectPrefix(req.identity.uid, req.params.projectId);
-      await authorizeProject(req.identity.uid, req.params.projectId, req.idToken, false);
+      // A retry must also clean orphaned assets after Firestore already removed
+      // the document. UID still comes exclusively from the verified token.
+      try { await authorizeProject(req.identity.uid, req.params.projectId, req.idToken, false); }
+      catch (error) { if (error.status !== 404) throw error; }
       const keys = await list(prefix);
       for (let i = 0; i < keys.length; i += 1000) {
         const result = await s3().send(new DeleteObjectsCommand({ Bucket: bucket, Delete: { Objects: keys.slice(i, i + 1000).map(Key => ({ Key })) } }));

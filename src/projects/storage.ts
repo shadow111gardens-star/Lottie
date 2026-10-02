@@ -1,5 +1,6 @@
 import { getFirebaseAuth } from '../lib/firebase';
 import type { User } from 'firebase/auth';
+import { assertProjectActive, projectSignal } from './lifecycle';
 
 export async function currentOwner(): Promise<User> {
   const auth = getFirebaseAuth();
@@ -11,15 +12,18 @@ export function assertOwner(user: User) {
   if (getFirebaseAuth().currentUser?.uid !== user.uid) throw new Error('Your account changed. Sign in again before saving.');
 }
 export function prefix(user: User, id: string) { return `users/${user.uid}/projects/${id}/`; }
-export async function storageRequest(user: User, id: string, method: string, path?: string, body?: BodyInit, suffix = '') {
+export async function storageRequest(user: User, id: string, method: string, path?: string, body?: BodyInit, suffix = '', cleanup = false) {
   assertOwner(user);
+  if (!cleanup) assertProjectActive(user.uid, id);
   const token = await user.getIdToken();
   assertOwner(user);
+  if (!cleanup) assertProjectActive(user.uid, id);
   const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
   if (body instanceof Blob && body.type) headers['Content-Type'] = body.type;
   if (suffix) headers['Content-Type'] = 'application/json';
-  const response = await fetch(`/api/storage/${encodeURIComponent(id)}${suffix}${path ? `?path=${encodeURIComponent(path)}` : ''}`, { method, headers, body });
+  const response = await fetch(`/api/storage/${encodeURIComponent(id)}${suffix}${path ? `?path=${encodeURIComponent(path)}` : ''}`, { method, headers, body, signal: cleanup ? undefined : projectSignal(user.uid, id) });
   assertOwner(user);
+  if (!cleanup) assertProjectActive(user.uid, id);
   if (!response.ok) {
     const message = await response.json().catch(() => null);
     throw new Error(message?.error || (response.status === 404

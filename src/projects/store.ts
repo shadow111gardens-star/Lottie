@@ -1,12 +1,13 @@
 import { collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, serverTimestamp, runTransaction, type DocumentData } from 'firebase/firestore';
 import type { User } from 'firebase/auth';
-import { db, firebaseError } from '../lib/firebase';
+import { db, firebaseError, getFirebaseAuth } from '../lib/firebase';
 import { initialScene, uid, type Scene } from '../editor/model';
 import { exportSceneSvg, validateScene } from '../editor/io';
 import { exportLottie } from '../editor/lottie';
 import { exportRenderedLottieSvg } from '../editor/lottieRenderer';
 import { currentOwner, assertOwner, upload, assetBlob, prefix, digest, dataUrl, storageRequest } from './storage';
 import { readDraft, writeDraft, removeDraft } from './drafts';
+import { assertProjectActive, projectStopped, stopProject, resumeProject } from './lifecycle';
 export { sortProjects, editedLabel } from './project-order';
 export type Sort = 'activity' | 'edited' | 'created' | 'name-asc' | 'name-desc';
 export const PROJECTS_CHANGED = 'kinetic-projects-changed';
@@ -16,6 +17,8 @@ const loaded = new Map<string, { scene: Scene; revision: string | null }>();
 const queues = new Map<string, Promise<void>>();
 const uploaded = new Set<string>();
 const deleted = new Map<string, { scene: Scene; files: Map<string, Blob>; document: DocumentData }>();
+const cleanupRetries = new Map<string, ReturnType<typeof setTimeout>>();
+const creations = new Map<string, { scene: Scene; pending?: Promise<void>; timer?: ReturnType<typeof setTimeout>; attempts: number }>();
 const cacheKey = (user: User, id: string) => `${user.uid}:${id}`;
 let draftClock = Date.now();
 const nextDraftTime = () => draftClock = Math.max(draftClock + 1, Date.now());
@@ -28,6 +31,7 @@ function isReference(value: any): value is Reference { return !!value && typeof 
 
 // Immutable content-addressed assets keep the last committed snapshot intact on failure.
 async function putAsset(user: User, id: string, folder: string, name: string, blob: Blob): Promise<Reference> {
+  assertProjectActive(user.uid, id);
   const path = `${folder}/${await digest(blob)}/${name}`, key = prefix(user, id) + path;
   if (!uploaded.has(key)) { await upload(user, id, path, blob); uploaded.add(key); }
   return { $r2: key, format: 'text' };
@@ -103,7 +107,7 @@ export async function readProjects(): Promise<{ projects: Project[]; invalid: nu
   const user = await currentOwner();
   const snapshot = await getDocs(collection(firestore(), 'users', user.uid, 'projects'));
   assertOwner(user); let invalid = 0;
-  const projects = await Promise.all(snapshot.docs.filter(item => item.data().status !== 'creating').map(async item => {
+  const projects = await Promise.all(snapshot.docs.filter(item => !projectStopped(user.uid, item.id) && !['creating', 'deleting'].includes(item.data().status)).map(async item => {
     const data = item.data();
     if (data.ownerId !== user.uid || data.projectId !== item.id || typeof data.name !== 'string') { invalid++; return null; }
     const scene = { ...initialScene(data.name), ...data.settings, name: data.name, layers: [] } as Scene;
@@ -112,37 +116,93 @@ export async function readProjects(): Promise<{ projects: Project[]; invalid: nu
     return { id: item.id, scene, type: data.type, hasContent: data.layerCount > 0, preview, status: data.status, createdAt: timestamp(data.createdAt), editedAt: timestamp(data.updatedAt), openedAt: timestamp(data.openedAt) } as Project;
   }));
   assertOwner(user);
-  return { projects: projects.filter((project): project is Project => !!project), invalid };
+  return { projects: projects.filter((project): project is Project => !!project && !projectStopped(user.uid, project.id)), invalid };
+}
+function blankDocument(user: User, id: string, scene: Scene) {
+  return { projectId: id, ownerId: user.uid, name: scene.name, type: typeOf(scene), createdAt: serverTimestamp(), updatedAt: serverTimestamp(), frameCount: 0, duration: scene.duration, settings: { width: scene.width, height: scene.height, background: scene.background, clip: scene.clip, duration: scene.duration }, editorState: null, r2: {}, status: 'active', layerCount: 0 };
+}
+async function ensureCreated(user: User, id: string): Promise<void> {
+  const key = cacheKey(user, id), creation = creations.get(key);
+  assertOwner(user); assertProjectActive(user.uid, id);
+  if (!creation) return;
+  if (creation.pending) return creation.pending;
+  clearTimeout(creation.timer);
+  const pending = (async () => {
+    // A transaction cannot overwrite edits or recreate a deleted project from
+    // a delayed creation retry after another client changed the document.
+    await runTransaction(firestore(), async transaction => {
+      const existing = await transaction.get(reference(user, id));
+      assertOwner(user); assertProjectActive(user.uid, id);
+      if (!existing.exists()) transaction.set(reference(user, id), blankDocument(user, id, creation.scene));
+    });
+    assertProjectActive(user.uid, id);
+    creations.delete(key); notify();
+  })();
+  creation.pending = pending;
+  try { await pending; }
+  catch (error) {
+    creation.pending = undefined;
+    if (!projectStopped(user.uid, id) && getFirebaseAuth().currentUser?.uid === user.uid) {
+      creation.timer = setTimeout(() => { void ensureCreated(user, id).catch(() => {}); }, Math.min(30000, 1000 * 2 ** Math.min(creation.attempts++, 5)));
+    }
+    throw error;
+  }
+}
+export function localProject(id: string) {
+  let user: User | null;
+  try { user = getFirebaseAuth().currentUser; } catch { return null; }
+  if (!user || projectStopped(user.uid, id)) return null;
+  const scene = loaded.get(cacheKey(user, id))?.scene;
+  return scene ? { id, owner: user.uid, scene } : null;
+}
+export function createBlankProject(name = 'Untitled scene') {
+  const user = getFirebaseAuth().currentUser;
+  if (!user) throw new Error('Sign in to create projects.');
+  const id = `new-${uid()}`, scene = { ...initialScene(), name: name.trim() || 'Untitled scene', layers: [] } as Scene;
+  const key = cacheKey(user, id);
+  loaded.set(key, { scene, revision: null });
+  creations.set(key, { scene, attempts: 0 });
+  // Only scheduling happens on the click path; render/navigation runs first.
+  creations.get(key)!.timer = setTimeout(() => { void ensureCreated(user, id).catch(() => {}); }, 0);
+  return { id, owner: user.uid, scene };
 }
 export async function createProject(name = 'Untitled scene', source?: Scene): Promise<string> {
-  const user = await currentOwner(), id = `new-${uid()}`;
-  const scene = source ? structuredClone(validateScene(source)) : { ...initialScene(), layers: [] };
+  const user = await currentOwner();
+  if (!source) {
+    const project = createBlankProject(name);
+    await ensureCreated(user, project.id); return project.id;
+  }
+  const id = `new-${uid()}`, scene = structuredClone(validateScene(source));
   scene.name = name.trim() || 'Untitled scene';
-  await setDoc(reference(user, id), { projectId: id, ownerId: user.uid, name: scene.name, type: typeOf(scene), createdAt: serverTimestamp(), updatedAt: serverTimestamp(), frameCount: 0, duration: scene.duration, editorState: null, r2: {}, status: 'active', layerCount: 0 });
+  await setDoc(reference(user, id), blankDocument(user, id, scene));
   assertOwner(user); loaded.set(cacheKey(user, id), { scene, revision: null });
   await saveProject(id, scene, user.uid); notify(); return id;
 }
 export async function loadProject(id: string): Promise<Scene> {
   const user = await currentOwner(), key = cacheKey(user, id);
-  const document = await getDoc(reference(user, id)); assertOwner(user);
+  assertProjectActive(user.uid, id);
+  if (creations.has(key)) return loaded.get(key)!.scene;
+  const document = await getDoc(reference(user, id)); assertOwner(user); assertProjectActive(user.uid, id);
   if (!document.exists()) throw new Error('This project is no longer available.');
   const data = document.data();
   if (data.ownerId !== user.uid || data.status === 'deleting') throw new Error('This project is unavailable or awaiting deletion.');
   const revision = data.editorState?.revision ?? null, draft = await readDraft(user, id);
   if (draft?.dirty) {
     const scene = validateScene(draft.scene);
+    assertProjectActive(user.uid, id);
     loaded.set(key, { scene, revision: draft.baseRevision }); return scene;
   }
   const cached = loaded.get(key); let scene: Scene;
   if (cached && cached.revision === revision) scene = cached.scene;
   else if (data.editorState?.key) scene = validateScene(await hydrate(user, id, JSON.parse(await (await assetBlob(user, id, data.editorState.key)).text())));
-  else scene = { ...initialScene(data.name), layers: [] };
-  scene = { ...scene, name: data.name }; assertOwner(user);
+  else scene = data.editorState?.inline ? validateScene(data.editorState.inline) : { ...initialScene(data.name), ...data.settings, layers: [] };
+  scene = { ...scene, name: data.name }; assertOwner(user); assertProjectActive(user.uid, id);
   loaded.set(key, { scene, revision }); return scene;
 }
 export async function preserveDraft(id: string, scene: Scene, ownerId?: string) {
   const user = await currentOwner();
   if (ownerId && user.uid !== ownerId) throw new Error('Your account changed. Local changes remain with their original owner.');
+  assertProjectActive(user.uid, id);
   await writeDraft(user, id, { scene, baseRevision: loaded.get(cacheKey(user, id))?.revision ?? null, savedAt: nextDraftTime(), dirty: true });
 }
 export async function saveProject(id: string, source: Scene, ownerId?: string): Promise<void> {
@@ -150,12 +210,15 @@ export async function saveProject(id: string, source: Scene, ownerId?: string): 
   if (ownerId && user.uid !== ownerId) throw new Error('Your account changed. Local changes remain with their original owner.');
   const requestedAt = nextDraftTime();
   const pending = previous.catch(() => {}).then(async () => {
-    assertOwner(user);
+    assertOwner(user); assertProjectActive(user.uid, id);
+    await ensureCreated(user, id);
+    assertProjectActive(user.uid, id);
     const base = loaded.get(key)?.revision ?? null, savedAt = requestedAt;
     const draft = await readDraft(user, id);
     if (!draft || draft.savedAt <= requestedAt) await writeDraft(user, id, { scene: source, baseRevision: base, savedAt, dirty: true });
-    const data = await encodeScene(user, id, source), revision = uid();
-    const state = await upload(user, id, `project/${revision}/editor.json`, new Blob([JSON.stringify(data)], { type: 'application/json' }));
+    const empty = !source.layers.length && !source.lottie && !source.files;
+    const data = empty ? source : await encodeScene(user, id, source), revision = uid();
+    const state = empty ? null : await upload(user, id, `project/${revision}/editor.json`, new Blob([JSON.stringify(data)], { type: 'application/json' }));
     let thumbnail: string | null = null;
     if (source.layers.length) try {
       const time = Math.min(1.5, source.duration / 2);
@@ -164,14 +227,15 @@ export async function saveProject(id: string, source: Scene, ownerId?: string): 
     } catch { /* A preview failure cannot discard an otherwise valid editor snapshot. */ }
     const manifest = [...collectReferences(data)];
     await runTransaction(firestore(), async transaction => {
-      const document = await transaction.get(reference(user, id)); assertOwner(user);
+      const document = await transaction.get(reference(user, id)); assertOwner(user); assertProjectActive(user.uid, id);
       if (!document.exists() || document.data().status !== 'active') throw new Error('This project is unavailable. Your local changes are preserved.');
       if ((document.data().editorState?.revision ?? null) !== base) throw new Error('This project changed in another session. Your unsaved draft is preserved; export it before reloading.');
       transaction.update(reference(user, id), { name: source.name, type: typeOf(source), updatedAt: serverTimestamp(), duration: source.duration,
         frameCount: source.layers.reduce((count, layer) => count + (layer.media?.frames.length || 0), 0), layerCount: source.layers.filter(layer => !layer.sourceFrame).length,
-        settings: { width: source.width, height: source.height, background: source.background, clip: source.clip, duration: source.duration }, editorState: { key: state, revision },
+        settings: { width: source.width, height: source.height, background: source.background, clip: source.clip, duration: source.duration }, editorState: empty ? { inline: JSON.parse(JSON.stringify(source)), revision } : { key: state, revision },
         r2: { project: state, thumbnail, source: manifest.filter(key => key.includes('/source/')), lottie: manifest.find(key => key.includes('/lottie/')) ?? null } });
     });
+    assertProjectActive(user.uid, id);
     loaded.set(key, { scene: source, revision });
     const latest = await readDraft(user, id);
     if (!latest || latest.savedAt <= savedAt) await writeDraft(user, id, { scene: source, baseRevision: revision, savedAt, dirty: false });
@@ -183,12 +247,15 @@ export async function saveProject(id: string, source: Scene, ownerId?: string): 
 }
 export async function openProject(id: string) {
   const scene = await loadProject(id), user = await currentOwner();
+  assertProjectActive(user.uid, id);
   await updateDoc(reference(user, id), { openedAt: serverTimestamp() }); notify(); return scene;
 }
 export async function renameProject(id: string, name: string) {
   const user = await currentOwner(), trimmed = name.trim();
+  assertProjectActive(user.uid, id);
   if (!trimmed || trimmed.length > 120) throw new Error('Enter a project name of up to 120 characters.');
   await updateDoc(reference(user, id), { name: trimmed, updatedAt: serverTimestamp() });
+  assertProjectActive(user.uid, id);
   loaded.delete(cacheKey(user, id));
   const draft = await readDraft(user, id);
   if (draft) await writeDraft(user, id, { ...draft, scene: { ...draft.scene, name: trimmed } });
@@ -214,41 +281,87 @@ export async function duplicateProject(id: string) {
 }
 export async function deleteProject(id: string) {
   const user = await currentOwner(), key = cacheKey(user, id);
-  await queues.get(key)?.catch(() => {});
-  const document = await getDoc(reference(user, id));
-  if (!document.exists()) throw new Error('This project has already been deleted.');
-  const data = document.data();
-  if (data.status !== 'deleting') {
-    // Undo keeps its backup privately in memory; deletion leaves no R2 trash objects.
-    const files = new Map<string, Blob>(), scene = await loadProject(id);
-    if (data.editorState?.key) {
-      const blob = await assetBlob(user, id, data.editorState.key); files.set(data.editorState.key, blob);
-      for (const asset of collectReferences(JSON.parse(await blob.text()))) files.set(asset, await assetBlob(user, id, asset));
-    }
-    if (data.r2?.thumbnail) files.set(data.r2.thumbnail, await assetBlob(user, id, data.r2.thumbnail));
-    deleted.set(key, { scene, files, document: data });
-    await updateDoc(reference(user, id), { status: 'deleting' });
-  }
-  await storageRequest(user, id, 'DELETE');
-  await deleteDoc(reference(user, id)); loaded.delete(key);
+  clearTimeout(cleanupRetries.get(key)); cleanupRetries.delete(key);
+  const cached = loaded.get(key)?.scene;
+  stopProject(user.uid, id);
+  const creation = creations.get(key); clearTimeout(creation?.timer);
+  // Let already-issued Firestore writes settle; all queued/new saves are stopped.
+  await Promise.allSettled([queues.get(key), creation?.pending]);
+  creations.delete(key); loaded.delete(key); queues.delete(key);
   for (const asset of uploaded) if (asset.startsWith(prefix(user, id))) uploaded.delete(asset);
-  await removeDraft(user, id); notify();
+  await removeDraft(user, id);
+  try { for (const storage of [window.localStorage, window.sessionStorage]) {
+    for (let index = storage.length - 1; index >= 0; index--) {
+      const entry = storage.key(index);
+      if (entry && (entry === id || entry.includes(key) || entry.includes(`/${id}`) || entry.includes(`:${id}`))) storage.removeItem(entry);
+    }
+  } } catch { /* Browser storage restrictions cannot prevent cloud cleanup. */ }
+  let document: DocumentData | undefined;
+  try { document = (await getDoc(reference(user, id))).data(); }
+  catch { /* R2 cleanup and Firestore deletion still run independently. */ }
+  if (document && document.status !== 'deleting') {
+    // Reject any upload still running on another API instance before listing
+    // assets for deletion. Its post-upload ownership check removes late writes.
+    try { await updateDoc(reference(user, id), { status: 'deleting' }); }
+    catch {
+      // If marking fails but removal succeeds, the API's post-upload check also
+      // rejects the missing document; storage cleanup remains independently safe.
+      await deleteDoc(reference(user, id)).catch(() => {});
+    }
+  }
+  if (document) {
+    // Preserve the existing Undo using private cleanup reads only; regular reads,
+    // loaders and autosaves were cancelled before any destructive operation.
+    const files = new Map<string, Blob>();
+    const read = async (asset: string) => (await storageRequest(user, id, 'GET', asset.slice(prefix(user, id).length), undefined, '', true)).blob();
+    try {
+      if (document.editorState?.key) {
+        const blob = await read(document.editorState.key); files.set(document.editorState.key, blob);
+        for (const asset of collectReferences(JSON.parse(await blob.text()))) files.set(asset, await read(asset));
+      }
+      if (document.r2?.thumbnail) files.set(document.r2.thumbnail, await read(document.r2.thumbnail));
+      const scene = cached || (document.editorState?.inline ? validateScene(document.editorState.inline) : document.editorState?.key ? validateScene(await hydrateForUndo()) : { ...initialScene(document.name), ...document.settings, layers: [] });
+      deleted.set(key, { scene, files, document });
+      async function hydrateForUndo() {
+        const decode = async (value: any): Promise<any> => isReference(value) ? value.format === 'dataUrl' ? dataUrl(files.get(value.$r2)!) : files.get(value.$r2)!.text() : Array.isArray(value) ? Promise.all(value.map(decode)) : value && typeof value === 'object' ? Object.fromEntries(await Promise.all(Object.entries(value).map(async ([k, v]) => [k, await decode(v)]))) : value;
+        return decode(JSON.parse(await files.get(document!.editorState.key)!.text()));
+      }
+    } catch { deleted.delete(key); /* An unavailable backup must not prevent deletion. */ }
+  }
+  const failures: string[] = [];
+  try { await storageRequest(user, id, 'DELETE', undefined, undefined, '', true); }
+  catch { failures.push('R2 asset cleanup failed. Retry Delete to remove remaining files.'); }
+  try { await deleteDoc(reference(user, id)); }
+  catch { failures.push('Firestore project cleanup failed. Retry Delete.'); }
+  notify();
+  if (failures.length) {
+    cleanupRetries.set(key, setTimeout(() => {
+      cleanupRetries.delete(key);
+      if (getFirebaseAuth().currentUser?.uid === user.uid) void deleteProject(id).catch(() => {});
+    }, 5000));
+    throw new Error(`${failures.join(' ')} Cleanup will retry in the background.`);
+  }
 }
 export async function restoreProject(id: string) {
   const user = await currentOwner(), key = cacheKey(user, id), backup = deleted.get(key);
+  if (cleanupRetries.has(key)) throw new Error('Project cleanup is still retrying. Wait before undoing deletion.');
   if (!backup) throw new Error('The deleted project is no longer available to undo.');
   if ((await getDoc(reference(user, id))).exists()) throw new Error('A project with this ID already exists.');
+  resumeProject(user.uid, id);
   await setDoc(reference(user, id), { ...backup.document, status: 'creating' });
   try {
     for (const [asset, blob] of backup.files) await upload(user, id, asset.slice(prefix(user, id).length), blob);
+    assertProjectActive(user.uid, id);
     await updateDoc(reference(user, id), { status: 'active' });
+    assertProjectActive(user.uid, id);
     loaded.set(key, { scene: backup.scene, revision: backup.document.editorState?.revision ?? null });
     await saveProject(id, backup.scene, user.uid); deleted.delete(key);
-  } catch (error) { await updateDoc(reference(user, id), { status: 'deleting' }).catch(() => {}); throw error; }
+  } catch (error) { if (!projectStopped(user.uid, id)) await updateDoc(reference(user, id), { status: 'deleting' }).catch(() => {}); throw error; }
   notify();
 }
 export async function frameSvg(id: string, layerId: string, frameId: string): Promise<string | undefined> {
-  const user = await currentOwner(), data = (await getDoc(reference(user, id))).data();
+  const user = await currentOwner(); assertProjectActive(user.uid, id);
+  const data = (await getDoc(reference(user, id))).data(); assertProjectActive(user.uid, id);
   if (!data?.editorState?.key) return undefined;
   const encoded = JSON.parse(await (await assetBlob(user, id, data.editorState.key)).text());
   const vector = encoded.layers.find((layer: any) => layer.id === layerId)?.media?.frames.find((frame: any) => frame.id === frameId)?.vector;

@@ -6,6 +6,6 @@ export const editorStorageMock = {
     build.onResolve({ filter: /lib\/firebase$/ }, () => ({ path: 'firebase', namespace: 'editor-storage' }));
     build.onLoad({ filter: /.*/, namespace: 'editor-storage' }, args => ({ contents: args.path === 'firebase'
       ? 'export function getFirebaseAuth() { return { currentUser: { uid: "interaction-user" } }; }'
-      : 'export async function preserveDraft(id, scene) { globalThis.editorDraft = scene; } export async function saveProject(id, scene) { globalThis.editorSaved = scene; } export async function loadProject() { throw new Error("Use Workspace in editor-only tests"); } export async function frameSvg() { return undefined; }' }));
+      : 'export function localProject(){return null;} export async function preserveDraft(id, scene) { globalThis.editorDraft = scene; } export async function saveProject(id, scene) { globalThis.editorSaved = scene; } export async function loadProject() { throw new Error("Use Workspace in editor-only tests"); } export async function frameSvg() { return undefined; }' }));
   },
 };

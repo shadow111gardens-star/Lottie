@@ -1,8 +1,9 @@
+import { PROJECT_REMOVED, projectStopped } from './projects/lifecycle';
 import { useEffect, useRef, useState } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { onAuthStateChanged } from 'firebase/auth';
 import { getFirebaseAuth } from './lib/firebase';
-import { loadProject, saveProject, preserveDraft, frameSvg } from './projects/store';
+import { loadProject, saveProject, preserveDraft, frameSvg, localProject } from './projects/store';
 import { dataUrl } from './projects/storage';
 import { vectorizeMedia, frameIsActive, isEditableVector } from './editor/vectorize';
 import {
@@ -135,19 +136,23 @@ function NumberField({
 export default function Editor() {
   const { projectId = "1" } = useParams();
   const navigate = useNavigate();
-  const [loaded, setLoaded] = useState<{ id: string; owner: string; scene: Scene } | null>(null);
+  const [loaded, setLoaded] = useState<{ id: string; owner: string; scene: Scene } | null>(() => localProject(projectId));
   const [error, setError] = useState('');
   useEffect(() => {
     let disposed = false, generation = 0;
     let unsubscribe: (() => void) | undefined;
-    setLoaded(null); setError('');
+    setLoaded(localProject(projectId)); setError('');
     try { unsubscribe = onAuthStateChanged(getFirebaseAuth(), user => {
-      const version = ++generation; setLoaded(null);
+      const version = ++generation; const local = localProject(projectId); setLoaded(local);
       if (!user) { navigate('/', { replace: true }); return; }
+      if (projectStopped(user.uid, projectId)) { navigate('/dashboard', { replace: true }); return; }
+      if (local) return;
       void loadProject(projectId).then(scene => { if (!disposed && version === generation) setLoaded({ id: projectId, owner: user.uid, scene }); })
         .catch(error => { if (!disposed && version === generation) setError(error instanceof Error ? error.message : 'Could not open project.'); });
     }); } catch (error) { setError(error instanceof Error ? error.message : 'Authentication is unavailable.'); }
-    return () => { disposed = true; unsubscribe?.(); };
+    const removed = (event: Event) => { const detail = (event as CustomEvent).detail; if (detail.id === projectId && detail.owner === getFirebaseAuth().currentUser?.uid) { ++generation; setLoaded(null); navigate('/dashboard', { replace: true }); } };
+    window.addEventListener(PROJECT_REMOVED, removed);
+    return () => { disposed = true; unsubscribe?.(); window.removeEventListener(PROJECT_REMOVED, removed); };
   }, [projectId, navigate]);
   if (!loaded || loaded.id !== projectId) return <div className="ke-editor"><div className="ke-toast" role={error ? 'alert' : 'status'}>{error || 'Loading project…'}{error && <Link to="/dashboard">Workspace</Link>}</div></div>;
   return <Workspace key={`${loaded.owner}:${projectId}`} projectId={projectId} initial={loaded.scene} ownerId={loaded.owner} />;
@@ -394,16 +399,18 @@ export function Workspace({ projectId, initial, ownerId }: { projectId: string; 
   const [saveRequest, setSaveRequest] = useState(0);
   const persistedTime = playing ? null : time;
   useEffect(() => {
+    if (projectStopped(ownerId, projectId)) return;
     const version = ++savingVersion.current;
     const snapshot = { ...scene, editorView: viewRef.current };
     setSaved('Unsaved changes');
     void preserveDraft(projectId, snapshot, ownerId).catch(() => {});
     const timer = setTimeout(() => {
+      if (projectStopped(ownerId, projectId)) return;
       setSaved('Saving…');
-      void saveProject(projectId, snapshot, ownerId).then(() => { if (version === savingVersion.current) setSaved('Saved'); })
-        .catch(error => { if (version === savingVersion.current) { setSaved('Not saved · retry'); setMessage(error instanceof Error ? error.message : 'Save failed. Your local changes are preserved.'); } });
+      void saveProject(projectId, snapshot, ownerId).then(() => { if (version === savingVersion.current && !projectStopped(ownerId, projectId)) setSaved('Saved'); })
+        .catch(error => { if (version === savingVersion.current && !projectStopped(ownerId, projectId)) { setSaved('Not saved · retry'); setMessage(error instanceof Error ? error.message : 'Save failed. Your local changes are preserved.'); } });
     }, 1200);
-    return () => clearTimeout(timer);
+    return () => { ++savingVersion.current; clearTimeout(timer); };
   }, [scene, projectId, ownerId, saveRequest, persistedTime, zoom, selected, expanded, timelineHeight]);
   useEffect(() => {
     const retry = () => setSaveRequest(value => value + 1);
@@ -411,7 +418,7 @@ export function Workspace({ projectId, initial, ownerId }: { projectId: string; 
     return () => window.removeEventListener('online', retry);
   }, []);
   useEffect(() => {
-    const flush = () => { void preserveDraft(projectId, { ...sceneRef.current, editorView: viewRef.current }, ownerId).catch(() => {}); };
+    const flush = () => { if (projectStopped(ownerId, projectId)) return; void preserveDraft(projectId, { ...sceneRef.current, editorView: viewRef.current }, ownerId).catch(() => {}); };
     window.addEventListener('pagehide', flush);
     return () => { flush(); window.removeEventListener('pagehide', flush); };
   }, [projectId, ownerId]);

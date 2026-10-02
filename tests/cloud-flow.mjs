@@ -8,7 +8,7 @@ import { PNG } from 'pngjs';
 import { GifWriter } from 'omggif';
 import { initializeApp, deleteApp } from 'firebase/app';
 import { connectAuthEmulator, signInWithCredential, GoogleAuthProvider, signOut, getAuth } from 'firebase/auth';
-import { connectFirestoreEmulator, doc, getDoc, setDoc, getFirestore, terminate } from 'firebase/firestore';
+import { connectFirestoreEmulator, doc, getDoc, setDoc, getFirestore, terminate, disableNetwork, enableNetwork } from 'firebase/firestore';
 import { createStorageApi } from '../server/storage.mjs';
 import vercelStorage from '../api/storage.mjs';
 import { VTracerWorker } from './vtracer-worker.mjs';
@@ -44,9 +44,10 @@ if (process.env.SVGFORGE_TEST_REAL_R2 === '1') {
 const server = application.listen(0, '127.0.0.1');
 await new Promise(resolve => server.once('listening', resolve));
 const origin = `http://127.0.0.1:${server.address().port}`;
-let failUploads = false;
+let failUploads = false; let storageCalls = 0;
 globalThis.fetch = (input, options) => {
   if (typeof input === 'string' && input.startsWith('/api/')) {
+    storageCalls++;
     if (failUploads && options?.method === 'PUT') return Promise.resolve(new Response(JSON.stringify({ error: 'Simulated network failure' }), { status: 502, headers: { 'Content-Type': 'application/json' } }));
     return nativeFetch(origin + input, options);
   }
@@ -58,6 +59,29 @@ try {
   const credential = GoogleAuthProvider.credential(JSON.stringify({ sub: 'cloud-test-owner', email: 'owner@example.test', email_verified: true, name: 'Cloud Test' }));
   const { user } = await signInWithCredential(api.auth, credential);
   assert.equal((await api.currentOwner()).uid, user.uid);
+  const callsBeforeBlank = storageCalls;
+  await disableNetwork(api.db);
+  const instant = api.createBlankProject('Instant blank test'); ids.add(instant.id);
+  assert.equal(typeof instant.id, 'string');
+  assert.deepEqual(api.localProject(instant.id).scene.layers, []);
+  assert.equal(storageCalls, callsBeforeBlank, 'Click path makes no storage call');
+  await new Promise(resolve => setTimeout(resolve, 100));
+  assert.deepEqual(api.localProject(instant.id).scene.layers, [], 'Background creation failure leaves blank editor available');
+  await enableNetwork(api.db);
+  await api.saveProject(instant.id, { ...instant.scene, width: 1000 });
+  assert.equal(storageCalls, callsBeforeBlank, 'Even blank autosave does not call R2');
+  assert.equal((await getDoc(doc(api.db, 'users', user.uid, 'projects', instant.id))).data().settings.width, 1000);
+  const racingSave = api.saveProject(instant.id, instant.scene).catch(error => error);
+  await api.deleteProject(instant.id);
+  await racingSave;
+  assert.equal((await getDoc(doc(api.db, 'users', user.uid, 'projects', instant.id))).exists(), false);
+  const callsAfterDelete = storageCalls;
+  await assert.rejects(api.loadProject(instant.id), error => error.name === 'AbortError');
+  await assert.rejects(api.saveProject(instant.id, instant.scene), error => error.name === 'AbortError');
+  await assert.rejects(api.preserveDraft(instant.id, instant.scene), error => error.name === 'AbortError');
+  assert.equal(storageCalls, callsAfterDelete, 'No stale asset call after deletion');
+  await api.deleteProject(instant.id); ids.delete(instant.id);
+  console.log('PASS Instant blank creation, background Firestore/blank autosave without R2, deletion cancels save and stale work, idempotent delete');
   const id = await api.createProject('Cloud integration test'); ids.add(id);
   const ref = doc(api.db, 'users', user.uid, 'projects', id);
   let document = (await getDoc(ref)).data();

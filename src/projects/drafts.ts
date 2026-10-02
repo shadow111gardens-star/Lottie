@@ -1,3 +1,4 @@
+import { assertProjectActive } from './lifecycle';
 import type { Scene } from '../editor/model';
 import { assertOwner } from './storage';
 import type { User } from 'firebase/auth';
@@ -13,12 +14,12 @@ function db() {
   });
 }
 export async function writeDraft(user: User, id: string, draft: Draft) {
-  assertOwner(user);
+  assertOwner(user); assertProjectActive(user.uid, id);
   const key = `${user.uid}:${id}`;
   memory.set(key, draft);
   try {
     const database = await db();
-    assertOwner(user);
+    assertOwner(user); assertProjectActive(user.uid, id);
     await new Promise<void>((resolve, reject) => {
       const transaction = database.transaction('drafts', 'readwrite');
       transaction.objectStore('drafts').put(draft, key);
@@ -28,7 +29,7 @@ export async function writeDraft(user: User, id: string, draft: Draft) {
   } catch { /* The in-memory draft remains available if disk storage fails. */ }
 }
 export async function readDraft(user: User, id: string): Promise<Draft | undefined> {
-  assertOwner(user);
+  assertOwner(user); assertProjectActive(user.uid, id);
   const key = `${user.uid}:${id}`;
   if (memory.has(key)) return memory.get(key);
   try {
@@ -38,7 +39,7 @@ export async function readDraft(user: User, id: string): Promise<Draft | undefin
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
     });
-    assertOwner(user);
+    assertOwner(user); assertProjectActive(user.uid, id);
     return value;
   } catch { return undefined; }
 }
