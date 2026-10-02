@@ -155,6 +155,7 @@ export async function vectorizeMedia(
         try {
           const svg = await trace(frame);
           const paths = vectorLayers(svg, owner, frame);
+          if (!paths.length) throw new Error('VTracer returned no editable paths.');
           vectors.push(...paths.reverse());
           frames.push({ ...frame, vector: { status: 'ready', svg } });
         } catch (error) {

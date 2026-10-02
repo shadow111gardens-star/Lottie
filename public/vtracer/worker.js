@@ -426,14 +426,15 @@ if (!('encodeInto' in cachedTextEncoder)) {
 
 let WASM_VECTOR_LEN = 0;
 
+
 let wasm;
-const ready = fetch(new URL('./vtracer_wasm_bg.wasm', self.location.href))
-  .then(async response => {
-    if (!response.ok) throw new Error('Could not load VTracer WASM: ' + response.status);
-    const instance = await WebAssembly.instantiate(await response.arrayBuffer(), __wbg_get_imports());
-    wasm = instance.instance.exports;
-    wasm.__wbindgen_start();
-  });
+const ready = fetch(new URL('vtracer_wasm_bg.wasm', self.location.href)).then(response => {
+  if (!response.ok) throw new Error('Could not load VTracer.');
+  return response.arrayBuffer();
+}).then(bytes => WebAssembly.instantiate(bytes, __wbg_get_imports())).then(result => {
+  wasm = result.instance.exports; wasm.__wbindgen_start();
+});
+ready.catch(() => {});
 self.onmessage = async ({ data }) => {
   try {
     await ready;
@@ -442,8 +443,5 @@ self.onmessage = async ({ data }) => {
       filterSpeckle: 0, colorPrecision: 6, pathPrecision: 4,
     });
     self.postMessage({ svg });
-  } catch (error) {
-    self.postMessage({ error: error instanceof Error ? error.message : String(error) });
-  }
+  } catch (error) { self.postMessage({ error: error.message || String(error) }); }
 };
-ready.catch(() => {});

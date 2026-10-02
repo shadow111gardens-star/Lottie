@@ -6,6 +6,8 @@ import assert from "node:assert/strict";
 import React from "react";
 import { renderToString } from "react-dom/server";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
+import { editorStorageMock } from './editor-storage-mock.mjs';
+import { build as bundleModel } from 'esbuild';
 const output = resolve("tests/.editor-render.mjs");
 const result = await build({
   entryPoints: ["src/Editor.tsx"],
@@ -14,13 +16,16 @@ const result = await build({
   format: "esm",
   packages: "external",
   loader: { ".css": "empty" },
+  plugins: [editorStorageMock],
   write: false,
 });
 try {
   await writeFile(output, result.outputFiles[0].text);
   globalThis.localStorage = { getItem: () => null };
   globalThis.window = { location: { search: "" } };
-  const { default: Editor } = await import(pathToFileURL(output));
+  const { Workspace } = await import(pathToFileURL(output));
+  const model = await bundleModel({ entryPoints: ['src/editor/model.ts'], bundle: true, platform: 'node', format: 'esm', write: false });
+  const { initialScene } = await import('data:text/javascript;base64,' + Buffer.from(model.outputFiles[0].text).toString('base64'));
   const render = (path) =>
     renderToString(
       React.createElement(
@@ -31,7 +36,7 @@ try {
           null,
           React.createElement(Route, {
             path: "/editor/:projectId",
-            element: React.createElement(Editor),
+            element: React.createElement(Workspace, { projectId: path.split('/').at(-1), initial: path.endsWith('/1') ? initialScene() : { ...initialScene('Untitled scene'), layers: [] } }),
           }),
         ),
       ),

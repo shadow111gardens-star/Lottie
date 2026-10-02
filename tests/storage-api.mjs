@@ -1,0 +1,38 @@
+import assert from 'node:assert/strict';
+import express from 'express';
+import { createStorageApi, objectKey } from '../server/storage.mjs';
+import { MemoryS3 } from './storage-fixture.mjs';
+const fixture = new MemoryS3();
+const projects = new Set(['alice/project-one', 'alice/project-copy', 'bob/project-two']);
+const app = express();
+app.use('/api/storage', createStorageApi({ s3: fixture, bucket: 'test-bucket', verify: async token => {
+  if (!['alice', 'bob'].includes(token)) throw new Error('Invalid token.'); return { uid: token };
+}, authorizeProject: async (uid, id) => { if (!projects.has(`${uid}/${id}`)) throw Object.assign(new Error('Project unavailable.'), { status: 404 }); } }));
+const server = app.listen(0, '127.0.0.1'); await new Promise(resolve => server.once('listening', resolve));
+const origin = `http://127.0.0.1:${server.address().port}/api/storage`;
+const request = (id, method = 'GET', path, body, token = 'alice') => fetch(`${origin}/${id}${path ? `?path=${encodeURIComponent(path)}` : ''}`, { method, headers: { Authorization: `Bearer ${token}`, 'Content-Type': method === 'POST' ? 'application/json' : 'image/svg+xml' }, body });
+try {
+  assert.equal((await fetch(`${origin}/project-one?path=frames/001.svg`)).status, 401);
+  assert.equal((await request('project-one', 'GET', 'frames/001.svg', undefined, 'invalid')).status, 401);
+  for (const path of ['../other', 'source/../project/secret', 'frames//001.svg', 'users/bob/projects/project-two/source/key', 'frames/%2e%2e/key', 'frames\\001.svg']) assert.equal((await request('project-one', 'PUT', path, '<svg/>')).status, 400);
+  assert.throws(() => objectKey('alice', '../project', 'source/video.mp4'));
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg"><path d="M0 0L1 1"/></svg>';
+  const saved = await request('project-one', 'PUT', 'frames/001.svg', svg);
+  assert.equal(saved.status, 200); assert.equal((await saved.json()).key, 'users/alice/projects/project-one/frames/001.svg');
+  const loaded = await request('project-one', 'GET', 'frames/001.svg'); assert.equal(await loaded.text(), svg);
+  assert.match(loaded.headers.get('cache-control'), /no-store/);
+  assert.equal((await request('project-one', 'GET', 'frames/001.svg', undefined, 'bob')).status, 404);
+  assert.equal((await request('project-one', 'DELETE', undefined, undefined, 'bob')).status, 404);
+  const copied = await request('project-one/copy', 'POST', undefined, JSON.stringify({ projectId: 'project-copy', uid: 'bob' }));
+  assert.equal(copied.status, 200); assert.equal(await (await request('project-copy', 'GET', 'frames/001.svg')).text(), svg);
+  assert.equal((await request('project-one/copy', 'POST', undefined, JSON.stringify({ projectId: 'project-two' }))).status, 404);
+  assert.ok([...fixture.objects.keys()].every(key => key.startsWith('users/alice/projects/')));
+  fixture.failDelete = true;
+  const failed = await request('project-one', 'DELETE'); assert.equal(failed.status, 502);
+  assert.ok(fixture.objects.has('users/alice/projects/project-one/frames/001.svg'));
+  fixture.failDelete = false;
+  assert.equal((await request('project-one', 'DELETE')).status, 200);
+  assert.equal((await request('project-one', 'GET', 'frames/001.svg')).status, 404);
+  assert.equal(await (await request('project-copy', 'GET', 'frames/001.svg')).text(), svg);
+  console.log('PASS Storage API: authentication, UID ownership, traversal, upload/read, independent copy, safe delete failure/retry and private responses');
+} finally { await new Promise(resolve => server.close(resolve)); }

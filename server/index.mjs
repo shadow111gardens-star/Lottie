@@ -1,0 +1,12 @@
+import express from 'express';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { createStorageApi } from './storage.mjs';
+const app = express();
+app.disable('x-powered-by');
+app.use('/api/storage', createStorageApi());
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../dist');
+app.use(express.static(root));
+app.get('/{*path}', (_req, res) => res.sendFile(path.join(root, 'index.html')));
+const port = Number(process.env.PORT || 3000);
+app.listen(port, () => console.log(`SVGForge running at http://localhost:${port}`));

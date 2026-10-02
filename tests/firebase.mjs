@@ -33,7 +33,7 @@ for (const [name, env] of [
         setup(build) {
           build.onResolve({ filter: /^firebase\/auth$/ }, () => ({ path: 'auth', namespace: 'auth-failure' }));
           build.onLoad({ filter: /.*/, namespace: 'auth-failure' }, () => ({
-            contents: 'export function getAuth() { throw new Error("Firebase: Error (auth/invalid-api-key)."); }',
+            contents: 'export function getAuth() { throw new Error("Firebase: Error (auth/invalid-api-key)."); } export function onAuthStateChanged() { return () => {}; } export class GoogleAuthProvider {} export async function signInWithPopup() { throw new Error("Auth unavailable"); }',
           }));
         },
       }] : [],

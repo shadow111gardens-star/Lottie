@@ -125,6 +125,8 @@ export function mediaFrameAt(media: MediaSequence, time: number): MediaFrame | u
   return frame && time < frame.timestamp + frame.duration ? frame : undefined;
 }
 export type Scene = {
+  files?: { source?: { name: string; data: string }[]; lottie?: string; svg?: string; canvas?: string };
+  editorView?: { time: number; zoom: number; selected: string | null; expanded: string[]; timelineHeight: number };
   version: 1;
   name: string;
   width: number;
@@ -333,7 +335,7 @@ export function evaluate(layer: Layer, time: number): Layer {
   }
   if (time < (layer.startTime ?? 0) || time >= (layer.endTime ?? Infinity))
     result.opacity = 0;
-  if (layer.media) result.frameImage = mediaFrameAt(layer.media, time - (layer.startTime ?? 0))?.image;
+  if (layer.media) { const frame = mediaFrameAt(layer.media, time - (layer.startTime ?? 0)); result.frameImage = frame?.vector?.status === 'ready' ? undefined : frame?.image; }
   return result;
 }
 export type BezierPath = {

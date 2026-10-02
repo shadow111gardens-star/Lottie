@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { PointerEvent } from "react";
 import LottieCanvas from "./LottieCanvas";
 import { clamp, evaluate, type Layer, type Scene } from "./model";
+import { frameIsActive } from './vectorize';
 
 import {
   drawLayer,
@@ -409,13 +410,14 @@ export default function Canvas(p: Props) {
           )}
           {[...(p.scene.lottie ? [] : p.scene.layers)]
             .reverse()
-            .filter((item) => item.visible)
+            .filter((item) => item.visible && frameIsActive(p.scene, item, p.time, p.mediaSelection))
             .map((item) => {
               const evaluated = evaluate(item, p.time);
               if (item.media && p.mediaSelection?.layer === item.id && p.mediaSelection.time === p.time) {
                 const frame = item.media.frames.find(f => f.id === p.mediaSelection!.frame);
-                if (frame) { evaluated.frameImage = frame.image; evaluated.opacity = evaluate({ ...item, startTime: undefined, endTime: undefined }, p.time).opacity; }
+                if (frame) { evaluated.frameImage = frame.vector?.status === 'ready' ? undefined : frame.image; evaluated.opacity = evaluate({ ...item, startTime: undefined, endTime: undefined }, p.time).opacity; }
               }
+              if (item.sourceFrame && frameIsActive(p.scene, item, p.time, p.mediaSelection)) evaluated.opacity = evaluate({ ...item, startTime: undefined, endTime: undefined }, p.time).opacity;
               return (
                 <g
                   key={item.id}

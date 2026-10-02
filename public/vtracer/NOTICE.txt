@@ -1,1 +1,2 @@
-VTracer @visioncortex/vtracer 1.0.0-alpha.4, MIT OR Apache-2.0. Source: https://github.com/visioncortex/vtracer
+@visioncortex/vtracer, MIT license. https://github.com/visioncortex/vtracer
+Official WASM bindings adapted to a browser worker.

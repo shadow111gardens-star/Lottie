@@ -1,5 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useNavigate } from "react-router-dom";
+import { onAuthStateChanged } from 'firebase/auth';
+import { getFirebaseAuth } from './lib/firebase';
+import { loadProject, saveProject, preserveDraft, frameSvg } from './projects/store';
+import { dataUrl } from './projects/storage';
+import { vectorizeMedia, frameIsActive, isEditableVector } from './editor/vectorize';
 import {
   ArrowLeft,
   ArrowDown,
@@ -36,7 +41,6 @@ import Canvas from "./editor/Canvas";
 import {
   clamp,
   evaluate,
-  initialScene,
   makeLayer,
   properties,
   transformProperties,
@@ -130,9 +134,25 @@ function NumberField({
 }
 export default function Editor() {
   const { projectId = "1" } = useParams();
-  return <Workspace key={projectId} projectId={projectId} />;
+  const navigate = useNavigate();
+  const [loaded, setLoaded] = useState<{ id: string; owner: string; scene: Scene } | null>(null);
+  const [error, setError] = useState('');
+  useEffect(() => {
+    let disposed = false, generation = 0;
+    let unsubscribe: (() => void) | undefined;
+    setLoaded(null); setError('');
+    try { unsubscribe = onAuthStateChanged(getFirebaseAuth(), user => {
+      const version = ++generation; setLoaded(null);
+      if (!user) { navigate('/', { replace: true }); return; }
+      void loadProject(projectId).then(scene => { if (!disposed && version === generation) setLoaded({ id: projectId, owner: user.uid, scene }); })
+        .catch(error => { if (!disposed && version === generation) setError(error instanceof Error ? error.message : 'Could not open project.'); });
+    }); } catch (error) { setError(error instanceof Error ? error.message : 'Authentication is unavailable.'); }
+    return () => { disposed = true; unsubscribe?.(); };
+  }, [projectId, navigate]);
+  if (!loaded || loaded.id !== projectId) return <div className="ke-editor"><div className="ke-toast" role={error ? 'alert' : 'status'}>{error || 'Loading project…'}{error && <Link to="/dashboard">Workspace</Link>}</div></div>;
+  return <Workspace key={`${loaded.owner}:${projectId}`} projectId={projectId} initial={loaded.scene} ownerId={loaded.owner} />;
 }
-function Workspace({ projectId }: { projectId: string }) {
+export function Workspace({ projectId, initial, ownerId }: { projectId: string; initial: Scene; ownerId: string }) {
   useEffect(() => {
     const previousTitle = document.title;
     document.title = "Kinetic — Vector animation editor";
@@ -140,32 +160,18 @@ function Workspace({ projectId }: { projectId: string }) {
       document.title = previousTitle;
     };
   }, []);
-  const [scene, setScene] = useState<Scene>(() => {
-    try {
-      const saved = JSON.parse(
-        localStorage.getItem(`kinetic:${projectId}`) || "null",
-      );
-      if (saved) return validateScene(saved);
-    } catch {
-      /* Start a new scene when storage is unavailable. */
-    }
-    const fresh = initialScene(
-      projectId.startsWith("new-") ? "Untitled scene" : "Ideas in motion",
-    );
-    if (projectId.startsWith("new-")) fresh.layers = [];
-    return fresh;
-  });
-  const [selected, setSelected] = useState<string | null>(null);
-  const [time, setTime] = useState(1.5);
+  const [scene, setScene] = useState<Scene>(initial);
+  const [selected, setSelected] = useState<string | null>(initial.editorView?.selected ?? null);
+  const [time, setTime] = useState(initial.editorView?.time ?? 0);
   const [playing, setPlaying] = useState(false);
   const [loop, setLoop] = useState(true);
-  const [zoom, setZoom] = useState(0.55);
+  const [zoom, setZoom] = useState(initial.editorView?.zoom ?? 0.55);
   const [tool, setTool] = useState("select");
   const [preview, setPreview] = useState(false);
   const [autoKey, setAutoKey] = useState(false);
-  const [saved, setSaved] = useState("Saved locally");
+  const [saved, setSaved] = useState("Saved");
   const [expanded, setExpanded] = useState<string[]>(
-    [scene.layers[0]?.id, scene.layers[1]?.id].filter(Boolean),
+    initial.editorView?.expanded ?? [scene.layers[0]?.id, scene.layers[1]?.id].filter(Boolean),
   );
   const [history, setHistory] = useState<Scene[]>([]);
   const [future, setFuture] = useState<Scene[]>([]);
@@ -215,7 +221,7 @@ function Workspace({ projectId }: { projectId: string }) {
   useEffect(() => {
     if (selected && !scene.layers.some((l) => l.id === selected)) select(null);
   }, [scene.layers, selected]);
-  const [timelineHeight, setTimelineHeight] = useState(290);
+  const [timelineHeight, setTimelineHeight] = useState(initial.editorView?.timelineHeight ?? 290);
   const layer = scene.layers.find((l) => l.id === selected);
   const value = layer && evaluate(layer, time);
   const begin = () => {
@@ -382,18 +388,33 @@ function Workspace({ projectId }: { projectId: string }) {
     commit({ ...scene, layers: [l, ...scene.layers] });
     select(l.id);
   };
+  const viewRef = useRef({ time, zoom, selected, expanded, timelineHeight });
+  viewRef.current = { time, zoom, selected, expanded, timelineHeight };
+  const savingVersion = useRef(0);
+  const [saveRequest, setSaveRequest] = useState(0);
+  const persistedTime = playing ? null : time;
   useEffect(() => {
-    setSaved("Saving…");
+    const version = ++savingVersion.current;
+    const snapshot = { ...scene, editorView: viewRef.current };
+    setSaved('Unsaved changes');
+    void preserveDraft(projectId, snapshot, ownerId).catch(() => {});
     const timer = setTimeout(() => {
-      try {
-        localStorage.setItem(`kinetic:${projectId}`, JSON.stringify(scene));
-        setSaved("Saved locally");
-      } catch {
-        setSaved("Storage full · export project");
-      }
-    }, 350);
+      setSaved('Saving…');
+      void saveProject(projectId, snapshot, ownerId).then(() => { if (version === savingVersion.current) setSaved('Saved'); })
+        .catch(error => { if (version === savingVersion.current) { setSaved('Not saved · retry'); setMessage(error instanceof Error ? error.message : 'Save failed. Your local changes are preserved.'); } });
+    }, 1200);
     return () => clearTimeout(timer);
-  }, [scene, projectId]);
+  }, [scene, projectId, ownerId, saveRequest, persistedTime, zoom, selected, expanded, timelineHeight]);
+  useEffect(() => {
+    const retry = () => setSaveRequest(value => value + 1);
+    window.addEventListener('online', retry);
+    return () => window.removeEventListener('online', retry);
+  }, []);
+  useEffect(() => {
+    const flush = () => { void preserveDraft(projectId, { ...sceneRef.current, editorView: viewRef.current }, ownerId).catch(() => {}); };
+    window.addEventListener('pagehide', flush);
+    return () => { flush(); window.removeEventListener('pagehide', flush); };
+  }, [projectId, ownerId]);
   const timeRef = useRef(time);
   timeRef.current = time;
   useEffect(() => {
@@ -425,6 +446,8 @@ function Workspace({ projectId }: { projectId: string }) {
       } else if (mod && e.key.toLowerCase() === "z") {
         e.preventDefault();
         e.shiftKey ? redo() : undo();
+      } else if (mod && e.key.toLowerCase() === "s") {
+        e.preventDefault(); setSaveRequest(value => value + 1);
       } else if (mod && e.key === "d") {
         e.preventDefault();
         duplicate();
@@ -496,10 +519,13 @@ function Workspace({ projectId }: { projectId: string }) {
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
-  const exportJson = () => {
+  const exportJson = async () => {
     try {
+      const json = JSON.stringify(exportLottie(scene), null, 2);
+      const next = { ...scene, files: { ...scene.files, lottie: json } };
+      commit(next);
       download(
-        JSON.stringify(exportLottie(scene), null, 2),
+        json,
         "application/json",
         "lottie.json",
       );
@@ -515,6 +541,7 @@ function Workspace({ projectId }: { projectId: string }) {
       const text = scene.lottie
         ? await exportRenderedLottieSvg(scene, time, animated)
         : exportSceneSvg(scene, time, animated);
+      commit({ ...scene, files: { ...scene.files, svg: text } });
       download(text, "image/svg+xml", animated ? "animated.svg" : "svg");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "SVG export failed.");
@@ -739,7 +766,7 @@ function Workspace({ projectId }: { projectId: string }) {
             )}
           </div>
         </div>
-        <div className="ke-save">
+        <div className="ke-save" role="button" tabIndex={0} title="Save project (Ctrl+S)" onClick={() => setSaveRequest(value => value + 1)} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSaveRequest(value => value + 1); } }}>
           <span />
           {saved}
         </div>
@@ -765,7 +792,7 @@ function Workspace({ projectId }: { projectId: string }) {
             <small>{scene.layers.length}</small>
           </button>
           <div className="ke-layer-list">
-            {scene.layers.map((l) => (
+            {scene.layers.filter(l => frameIsActive(scene, l, time, mediaSelection)).map((l) => (
               <div
                 key={l.id}
                 className={`ke-layer-row ${selected === l.id ? "selected" : ""}`}
@@ -952,7 +979,7 @@ function Workspace({ projectId }: { projectId: string }) {
             >
               {preview ? "Exit preview" : "Preview"}
             </button>
-            <span className="ke-muted">SVG · Vector</span>
+            <span className="ke-muted">{scene.layers.some(l => isEditableVector(l) && frameIsActive(scene, l, time, mediaSelection)) ? 'SVG · Vector' : scene.layers.some(l => l.media) ? 'Source frame' : 'SVG'}</span>
           </div>
         </section>
         <aside className="ke-panel ke-inspector">
@@ -1141,7 +1168,7 @@ function Workspace({ projectId }: { projectId: string }) {
                 />
               </label>
               <p className="ke-hint">
-                Your scene is a real SVG. Add shapes, text, or import vectors.
+                {scene.layers.some(l => l.media) ? 'Select a traced path to edit this frame. ' : 'Your scene is a real SVG. '}Add shapes, text, or import vectors.
                 Select a layer to edit its appearance and animate its
                 properties.
               </p>
@@ -1479,7 +1506,7 @@ function Workspace({ projectId }: { projectId: string }) {
               />
             </div>
           </div>
-          {scene.layers.map((l) => (
+          {scene.layers.filter(l => !l.sourceFrame).map((l) => (
             <div key={l.id}>
               {l.media && <div className="ke-track-row ke-media-row">
                 <div className="ke-track-label">{l.media.frames.length} source frames</div>
@@ -1488,7 +1515,15 @@ function Workspace({ projectId }: { projectId: string }) {
                     aria-label={`${l.name} frame ${f.number} at ${f.timestamp}s`}
                     aria-pressed={mediaSelection?.layer === l.id && mediaSelection.frame === f.id && mediaSelection.time === time && !playing}
                     title={`Frame ${f.number} · ${f.timestamp}s · duration ${f.duration}s · PTS ${f.pts} × ${l.media!.timeBase}`}
-                    onClick={() => { const t=(l.startTime ?? 0)+f.timestamp; setPlaying(false); setTime(t); select(l.id); setMediaSelection({layer:l.id,frame:f.id,time:t}); }}>
+                    onClick={() => {
+                      const t=(l.startTime ?? 0)+f.timestamp; setPlaying(false); setTime(t);
+                      select(scene.layers.find(path => path.sourceFrame?.frame === f.id && isEditableVector(path))?.id ?? l.id);
+                      setMediaSelection({layer:l.id,frame:f.id,time:t});
+                      if (f.vector?.status === 'error') setMessage(f.vector.error);
+                      // Hydration has already loaded all saved SVGs from R2; this verifies
+                      // the selected asset without replacing newer, unsaved path edits.
+                      void frameSvg(projectId, l.id, f.id).catch(error => setMessage(error instanceof Error ? error.message : 'Could not load this frame’s SVG.'));
+                    }}>
                     <img src={f.image} alt={`Frame ${f.number}`} loading="lazy" />
                     <span>#{f.number} · {f.timestamp}s</span>
                   </button>)}
@@ -1718,10 +1753,16 @@ function Workspace({ projectId }: { projectId: string }) {
               importingMedia.current = true;
               const before = sceneRef.current;
               mediaAbort.current = new AbortController();
-              const data = await importMedia(file, setMessage, mediaAbort.current.signal);
+              const extracted = await importMedia(file, setMessage, mediaAbort.current.signal);
+              const source = { ...extracted, files: { source: [{ name: file.name, data: await dataUrl(file) }] } };
               if (sceneRef.current !== before) throw new Error("The project changed during media extraction. Import again to replace it with the extracted frames.");
-              commit(data); select(data.layers[0].id); setTime(0); setPlaying(false); setMediaSelection(null); setImportReport([]); setExpanded([]);
-              setMessage(`Imported all ${data.layers[0].media!.frames.length} source frames with original timing. Frames are ready for vectorization; audio is not imported.`);
+              // Preserve extraction immediately, even if tracing or remote storage fails.
+              commit(source); setTime(0); setPlaying(false); setMediaSelection(null); setExpanded([]);
+              const result = await vectorizeMedia(source, setMessage, mediaAbort.current.signal);
+              if (sceneRef.current !== source) throw new Error('The project changed during vectorization. Extracted frames and local edits are preserved.');
+              const data = result.scene;
+              commit(data); select(data.layers.find(isEditableVector)?.id ?? data.layers.find(l => l.media)?.id ?? null); setImportReport(result.errors);
+              setMessage(`Processed every source frame. ${result.errors.length ? `${result.errors.length} frame(s) failed; see the report.` : 'All frames have editable SVG paths.'} Saving project…`);
               return;
             }
             const fileLimit = /\.kinetic\.json$/i.test(file.name) ? 768 : 25;
@@ -1735,6 +1776,7 @@ function Workspace({ projectId }: { projectId: string }) {
                   ? importLottie(raw, file.name)
                   : null;
               const data = result?.scene ?? validateScene(raw);
+              if (result) data.files = { ...data.files, lottie: text };
               setImportReport(result?.warnings ?? []);
               setMessage(
                 result

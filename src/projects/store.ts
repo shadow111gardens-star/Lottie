@@ -1,127 +1,256 @@
+import { collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, serverTimestamp, runTransaction, type DocumentData } from 'firebase/firestore';
+import type { User } from 'firebase/auth';
+import { db, firebaseError } from '../lib/firebase';
 import { initialScene, uid, type Scene } from '../editor/model';
-import { validateScene } from '../editor/io';
-
-const SCENE = 'kinetic:';
-const META = 'kinetic-project-meta:';
-const TRASH = 'kinetic-project-trash:';
-export const PROJECTS_CHANGED = 'kinetic-projects-changed';
-type Metadata = { createdAt: number | null; editedAt: number | null; openedAt: number | null };
-export type Project = Metadata & { id: string; scene: Scene; type: 'Animation' | 'SVG' };
+import { exportSceneSvg, validateScene } from '../editor/io';
+import { exportLottie } from '../editor/lottie';
+import { exportRenderedLottieSvg } from '../editor/lottieRenderer';
+import { currentOwner, assertOwner, upload, assetBlob, prefix, digest, dataUrl, storageRequest } from './storage';
+import { readDraft, writeDraft, removeDraft } from './drafts';
+export { sortProjects, editedLabel } from './project-order';
 export type Sort = 'activity' | 'edited' | 'created' | 'name-asc' | 'name-desc';
-const blankMetadata = (): Metadata => ({ createdAt: null, editedAt: null, openedAt: null });
-function metadata(id: string): Metadata {
-  try {
-    const value = JSON.parse(localStorage.getItem(META + id) || 'null');
-    const date = (n: unknown) => typeof n === 'number' && Number.isFinite(n) && n > 0 ? n : null;
-    return { createdAt: date(value?.createdAt), editedAt: date(value?.editedAt), openedAt: date(value?.openedAt) };
-  } catch { return blankMetadata(); }
-}
+export const PROJECTS_CHANGED = 'kinetic-projects-changed';
+export type Project = { id: string; scene: Scene; type: 'Animation' | 'SVG'; createdAt: number | null; editedAt: number | null; openedAt: number | null; preview?: string; hasContent?: boolean; status?: string };
+type Reference = { $r2: string; format: 'text' | 'dataUrl' };
+const loaded = new Map<string, { scene: Scene; revision: string | null }>();
+const queues = new Map<string, Promise<void>>();
+const uploaded = new Set<string>();
+const deleted = new Map<string, { scene: Scene; files: Map<string, Blob>; document: DocumentData }>();
+const cacheKey = (user: User, id: string) => `${user.uid}:${id}`;
+let draftClock = Date.now();
+const nextDraftTime = () => draftClock = Math.max(draftClock + 1, Date.now());
+function firestore() { if (!db) throw firebaseError || new Error('Firestore is unavailable.'); return db; }
+function reference(user: User, id: string) { return doc(firestore(), 'users', user.uid, 'projects', id); }
 function notify() { window.dispatchEvent(new Event(PROJECTS_CHANGED)); }
+function typeOf(scene: Scene): Project['type'] { return scene.lottie || scene.layers.some(layer => layer.media || Object.values(layer.tracks).some(keys => keys?.length)) ? 'Animation' : 'SVG'; }
+function timestamp(value: any): number | null { return typeof value?.toMillis === 'function' ? value.toMillis() : null; }
+function isReference(value: any): value is Reference { return !!value && typeof value === 'object' && typeof value.$r2 === 'string'; }
 
-/** Observe existing scene saves without altering the editor or its JSON format.
- * Only changed local scene content affects edit time; opening a project does not.
- */
-export function installProjectTracking(): () => void {
-  let storage: Storage;
-  try { storage = localStorage; } catch { return () => {}; }
-  const prototype = Object.getPrototypeOf(storage) as Storage;
-  const original = prototype.setItem;
-  const tracked: Storage['setItem'] = function(this: Storage, key, value) {
-    const isScene = this === storage && String(key).startsWith(SCENE);
-    const previous = isScene ? this.getItem(key) : null;
-    original.call(this, key, value); // Keep original quota/failure behavior.
-    if (!isScene || previous === String(value)) return;
-    try {
-      validateScene(JSON.parse(String(value)));
-      // A normalization-only save of an old project is not a user edit.
-      if (previous && JSON.stringify(validateScene(JSON.parse(previous))) === JSON.stringify(validateScene(JSON.parse(String(value))))) return;
-      const id = String(key).slice(SCENE.length), meta = metadata(id), now = Date.now();
-      original.call(this, META + id, JSON.stringify({ ...meta, createdAt: previous === null ? now : meta.createdAt, editedAt: now }));
-    } catch { /* Scene writes must succeed even if optional metadata cannot be saved. */ }
-    notify();
-  };
-  prototype.setItem = tracked;
-  return () => { if (prototype.setItem === tracked) prototype.setItem = original; };
+// Immutable content-addressed assets keep the last committed snapshot intact on failure.
+async function putAsset(user: User, id: string, folder: string, name: string, blob: Blob): Promise<Reference> {
+  const path = `${folder}/${await digest(blob)}/${name}`, key = prefix(user, id) + path;
+  if (!uploaded.has(key)) { await upload(user, id, path, blob); uploaded.add(key); }
+  return { $r2: key, format: 'text' };
 }
-export function readProjects(): { projects: Project[]; invalid: number } {
-  const projects: Project[] = []; let invalid = 0;
-  const keys = Array.from({ length: localStorage.length }, (_, i) => localStorage.key(i)!).filter(k => k.startsWith(SCENE));
-  for (const key of keys) {
-    try {
-      const scene = validateScene(JSON.parse(localStorage.getItem(key)!));
-      const animated = scene.layers.some(l => Object.values(l.tracks).some(keys => keys && keys.length > 0));
-      const id = key.slice(SCENE.length);
-      projects.push({ id, scene, type: animated ? 'Animation' : 'SVG', ...metadata(id) });
-    } catch { invalid++; }
+function collectReferences(value: any, keys = new Set<string>()): Set<string> {
+  if (isReference(value)) keys.add(value.$r2);
+  else if (Array.isArray(value)) value.forEach(item => collectReferences(item, keys));
+  else if (value && typeof value === 'object') Object.values(value).forEach(item => collectReferences(item, keys));
+  return keys;
+}
+async function encodeScene(user: User, id: string, source: Scene) {
+  // Regenerate SVGs from the editable layers, including recolors and deletions.
+  const scene = source;
+  const result: any = structuredClone(source);
+  const framePaths = new Map<string, Scene['layers']>();
+  for (const layer of source.layers) if (layer.sourceFrame) {
+    const key = `${layer.sourceFrame.layer}:${layer.sourceFrame.frame}`;
+    const list = framePaths.get(key) ?? [];
+    list.push({ ...layer, startTime: undefined, endTime: undefined });
+    framePaths.set(key, list);
   }
-  return { projects, invalid };
+  if (result.files?.source) for (const file of result.files.source) file.data = { ...await putAsset(user, id, 'source', file.name.replace(/[^A-Za-z0-9_.-]/g, '_'), await (await fetch(file.data)).blob()), format: 'dataUrl' };
+  const failures: string[] = [];
+  for (const owner of result.layers) if (owner.media) for (const frame of owner.media.frames) {
+    try {
+    const name = String(frame.number).padStart(3, '0');
+    frame.image = { ...await putAsset(user, id, `frames/${owner.id}`, `${name}.png`, await (await fetch(frame.image)).blob()), format: 'dataUrl' };
+    if (frame.vector?.status === 'ready') {
+      const paths = framePaths.get(`${owner.id}:${frame.id}`) ?? [];
+      const svg = exportSceneSvg({ ...source, width: owner.media.width, height: owner.media.height, background: 'transparent', layers: paths }, frame.timestamp + (owner.startTime ?? 0), false);
+      frame.vector.svg = await putAsset(user, id, `frames/${owner.id}`, `${name}.svg`, new Blob([svg], { type: 'image/svg+xml' }));
+    }
+    } catch (error) { failures.push(`Frame ${frame.number} (${frame.timestamp}s): ${error instanceof Error ? error.message : 'Could not upload frame.'}`); }
+  }
+  if (failures.length) throw new Error(failures.join('\n'));
+  if (scene.files?.lottie || scene.lottie) {
+    result.files ??= {};
+    result.files.lottie = await putAsset(user, id, 'lottie', 'animation.json', new Blob([scene.files?.lottie || JSON.stringify(exportLottie(scene))], { type: 'application/json' }));
+  }
+  if (scene.files?.svg) result.files.svg = await putAsset(user, id, 'project', 'export.svg', new Blob([scene.files.svg], { type: 'image/svg+xml' }));
+  if (!scene.lottie) {
+    const svg = exportSceneSvg(scene, scene.editorView?.time ?? 0, false);
+    result.files ??= {}; result.files.canvas = await putAsset(user, id, 'project', 'scene.svg', new Blob([svg], { type: 'image/svg+xml' }));
+  }
+  async function encode(value: any): Promise<any> {
+    if (isReference(value)) return value;
+    if (typeof value === 'string' && /^data:[^,]*;base64,/.test(value)) return { ...await putAsset(user, id, 'project', 'asset', await (await fetch(value)).blob()), format: 'dataUrl' };
+    if (Array.isArray(value)) { const list = []; for (const item of value) list.push(await encode(item)); return list; }
+    if (value && typeof value === 'object') { const object: Record<string, any> = {}; for (const [key, item] of Object.entries(value)) if (item !== undefined) object[key] = await encode(item); return object; }
+    return value;
+  }
+  return encode(result);
 }
-function readScene(id: string): Scene {
-  const raw = localStorage.getItem(SCENE + id);
-  if (!raw) throw new Error('This project is no longer available.');
-  return validateScene(JSON.parse(raw));
+async function hydrate(user: User, id: string, value: any): Promise<any> {
+  const cache = new Map<string, Promise<string>>();
+  async function decode(value: any): Promise<any> {
+    if (isReference(value)) {
+      let pending = cache.get(value.$r2);
+      if (!pending) {
+        const ref = value;
+        pending = (async () => { const blob = await assetBlob(user, id, ref.$r2); uploaded.add(ref.$r2); return ref.format === 'dataUrl' ? dataUrl(blob) : blob.text(); })();
+        cache.set(value.$r2, pending);
+      }
+      return pending;
+    }
+    if (Array.isArray(value)) return Promise.all(value.map(decode));
+    if (value && typeof value === 'object') return Object.fromEntries(await Promise.all(Object.entries(value).map(async ([key, item]) => [key, await decode(item)])));
+    return value;
+  }
+  return decode(value);
 }
-export function createProject(name = 'Untitled scene', scene?: Scene): string {
-  const id = `new-${uid()}`;
-  const next = scene ? structuredClone(validateScene(scene)) : { ...initialScene(), layers: [] };
-  next.name = name.trim() || 'Untitled scene';
-  const now = Date.now();
-  // Metadata first: rollback if the actual project cannot be persisted.
-  localStorage.setItem(META + id, JSON.stringify({ createdAt: now, editedAt: now, openedAt: null }));
-  try { localStorage.setItem(SCENE + id, JSON.stringify(next)); }
-  catch (error) { localStorage.removeItem(META + id); throw error; }
-  notify(); return id;
+export async function readProjects(): Promise<{ projects: Project[]; invalid: number }> {
+  const user = await currentOwner();
+  const snapshot = await getDocs(collection(firestore(), 'users', user.uid, 'projects'));
+  assertOwner(user); let invalid = 0;
+  const projects = await Promise.all(snapshot.docs.filter(item => item.data().status !== 'creating').map(async item => {
+    const data = item.data();
+    if (data.ownerId !== user.uid || data.projectId !== item.id || typeof data.name !== 'string') { invalid++; return null; }
+    const scene = { ...initialScene(data.name), ...data.settings, name: data.name, layers: [] } as Scene;
+    let preview: string | undefined;
+    if (data.r2?.thumbnail) try { preview = await dataUrl(await assetBlob(user, item.id, data.r2.thumbnail)); } catch { /* Cards still open when a thumbnail is unavailable. */ }
+    return { id: item.id, scene, type: data.type, hasContent: data.layerCount > 0, preview, status: data.status, createdAt: timestamp(data.createdAt), editedAt: timestamp(data.updatedAt), openedAt: timestamp(data.openedAt) } as Project;
+  }));
+  assertOwner(user);
+  return { projects: projects.filter((project): project is Project => !!project), invalid };
 }
-export function renameProject(id: string, name: string) {
-  const trimmed = name.trim();
-  if (!trimmed) throw new Error('Enter a project name.');
-  if (trimmed.length > 120) throw new Error('Keep the name under 121 characters.');
-  const scene = readScene(id);
-  if (scene.name !== trimmed) localStorage.setItem(SCENE + id, JSON.stringify({ ...scene, name: trimmed }));
+export async function createProject(name = 'Untitled scene', source?: Scene): Promise<string> {
+  const user = await currentOwner(), id = `new-${uid()}`;
+  const scene = source ? structuredClone(validateScene(source)) : { ...initialScene(), layers: [] };
+  scene.name = name.trim() || 'Untitled scene';
+  await setDoc(reference(user, id), { projectId: id, ownerId: user.uid, name: scene.name, type: typeOf(scene), createdAt: serverTimestamp(), updatedAt: serverTimestamp(), frameCount: 0, duration: scene.duration, editorState: null, r2: {}, status: 'active', layerCount: 0 });
+  assertOwner(user); loaded.set(cacheKey(user, id), { scene, revision: null });
+  await saveProject(id, scene, user.uid); notify(); return id;
+}
+export async function loadProject(id: string): Promise<Scene> {
+  const user = await currentOwner(), key = cacheKey(user, id);
+  const document = await getDoc(reference(user, id)); assertOwner(user);
+  if (!document.exists()) throw new Error('This project is no longer available.');
+  const data = document.data();
+  if (data.ownerId !== user.uid || data.status === 'deleting') throw new Error('This project is unavailable or awaiting deletion.');
+  const revision = data.editorState?.revision ?? null, draft = await readDraft(user, id);
+  if (draft?.dirty) {
+    const scene = validateScene(draft.scene);
+    loaded.set(key, { scene, revision: draft.baseRevision }); return scene;
+  }
+  const cached = loaded.get(key); let scene: Scene;
+  if (cached && cached.revision === revision) scene = cached.scene;
+  else if (data.editorState?.key) scene = validateScene(await hydrate(user, id, JSON.parse(await (await assetBlob(user, id, data.editorState.key)).text())));
+  else scene = { ...initialScene(data.name), layers: [] };
+  scene = { ...scene, name: data.name }; assertOwner(user);
+  loaded.set(key, { scene, revision }); return scene;
+}
+export async function preserveDraft(id: string, scene: Scene, ownerId?: string) {
+  const user = await currentOwner();
+  if (ownerId && user.uid !== ownerId) throw new Error('Your account changed. Local changes remain with their original owner.');
+  await writeDraft(user, id, { scene, baseRevision: loaded.get(cacheKey(user, id))?.revision ?? null, savedAt: nextDraftTime(), dirty: true });
+}
+export async function saveProject(id: string, source: Scene, ownerId?: string): Promise<void> {
+  const user = await currentOwner(), key = cacheKey(user, id), previous = queues.get(key) || Promise.resolve();
+  if (ownerId && user.uid !== ownerId) throw new Error('Your account changed. Local changes remain with their original owner.');
+  const requestedAt = nextDraftTime();
+  const pending = previous.catch(() => {}).then(async () => {
+    assertOwner(user);
+    const base = loaded.get(key)?.revision ?? null, savedAt = requestedAt;
+    const draft = await readDraft(user, id);
+    if (!draft || draft.savedAt <= requestedAt) await writeDraft(user, id, { scene: source, baseRevision: base, savedAt, dirty: true });
+    const data = await encodeScene(user, id, source), revision = uid();
+    const state = await upload(user, id, `project/${revision}/editor.json`, new Blob([JSON.stringify(data)], { type: 'application/json' }));
+    let thumbnail: string | null = null;
+    if (source.layers.length) try {
+      const time = Math.min(1.5, source.duration / 2);
+      const svg = source.lottie ? await exportRenderedLottieSvg(source, time, false) : exportSceneSvg(source, time, false);
+      thumbnail = (await putAsset(user, id, 'thumbnails', 'preview.svg', new Blob([svg], { type: 'image/svg+xml' }))).$r2;
+    } catch { /* A preview failure cannot discard an otherwise valid editor snapshot. */ }
+    const manifest = [...collectReferences(data)];
+    await runTransaction(firestore(), async transaction => {
+      const document = await transaction.get(reference(user, id)); assertOwner(user);
+      if (!document.exists() || document.data().status !== 'active') throw new Error('This project is unavailable. Your local changes are preserved.');
+      if ((document.data().editorState?.revision ?? null) !== base) throw new Error('This project changed in another session. Your unsaved draft is preserved; export it before reloading.');
+      transaction.update(reference(user, id), { name: source.name, type: typeOf(source), updatedAt: serverTimestamp(), duration: source.duration,
+        frameCount: source.layers.reduce((count, layer) => count + (layer.media?.frames.length || 0), 0), layerCount: source.layers.filter(layer => !layer.sourceFrame).length,
+        settings: { width: source.width, height: source.height, background: source.background, clip: source.clip, duration: source.duration }, editorState: { key: state, revision },
+        r2: { project: state, thumbnail, source: manifest.filter(key => key.includes('/source/')), lottie: manifest.find(key => key.includes('/lottie/')) ?? null } });
+    });
+    loaded.set(key, { scene: source, revision });
+    const latest = await readDraft(user, id);
+    if (!latest || latest.savedAt <= savedAt) await writeDraft(user, id, { scene: source, baseRevision: revision, savedAt, dirty: false });
+    else await writeDraft(user, id, { ...latest, baseRevision: revision });
+    notify();
+  });
+  queues.set(key, pending);
+  try { await pending; } finally { if (queues.get(key) === pending) queues.delete(key); }
+}
+export async function openProject(id: string) {
+  const scene = await loadProject(id), user = await currentOwner();
+  await updateDoc(reference(user, id), { openedAt: serverTimestamp() }); notify(); return scene;
+}
+export async function renameProject(id: string, name: string) {
+  const user = await currentOwner(), trimmed = name.trim();
+  if (!trimmed || trimmed.length > 120) throw new Error('Enter a project name of up to 120 characters.');
+  await updateDoc(reference(user, id), { name: trimmed, updatedAt: serverTimestamp() });
+  loaded.delete(cacheKey(user, id));
+  const draft = await readDraft(user, id);
+  if (draft) await writeDraft(user, id, { ...draft, scene: { ...draft.scene, name: trimmed } });
   notify();
 }
-export function duplicateProject(id: string): string {
-  const scene = readScene(id), names = new Set(readProjects().projects.map(p => p.scene.name));
+export async function duplicateProject(id: string) {
+  const user = await currentOwner(), scene = await loadProject(id), nextId = `new-${uid()}`;
+  const names = new Set((await readProjects()).projects.map(project => project.scene.name));
   const base = `${scene.name} copy`; let name = base, number = 2;
   while (names.has(name)) name = `${base} ${number++}`;
-  return createProject(name, scene);
+  await setDoc(reference(user, nextId), { projectId: nextId, ownerId: user.uid, name, type: typeOf(scene), createdAt: serverTimestamp(), updatedAt: serverTimestamp(), frameCount: 0, duration: scene.duration, editorState: null, r2: {}, status: 'creating', layerCount: 0 });
+  try {
+    await storageRequest(user, id, 'POST', undefined, JSON.stringify({ projectId: nextId }), '/copy');
+    await updateDoc(reference(user, nextId), { status: 'active' });
+    loaded.set(cacheKey(user, nextId), { scene: { ...scene, name }, revision: null });
+    await saveProject(nextId, { ...scene, name }, user.uid);
+  } catch (error) {
+    try { await storageRequest(user, nextId, 'DELETE'); await deleteDoc(reference(user, nextId)); }
+    catch { await updateDoc(reference(user, nextId), { status: 'deleting' }).catch(() => {}); }
+    throw error;
+  }
+  notify(); return nextId;
 }
-export function openProject(id: string) {
-  readScene(id);
-  localStorage.setItem(META + id, JSON.stringify({ ...metadata(id), openedAt: Date.now() }));
+export async function deleteProject(id: string) {
+  const user = await currentOwner(), key = cacheKey(user, id);
+  await queues.get(key)?.catch(() => {});
+  const document = await getDoc(reference(user, id));
+  if (!document.exists()) throw new Error('This project has already been deleted.');
+  const data = document.data();
+  if (data.status !== 'deleting') {
+    // Undo keeps its backup privately in memory; deletion leaves no R2 trash objects.
+    const files = new Map<string, Blob>(), scene = await loadProject(id);
+    if (data.editorState?.key) {
+      const blob = await assetBlob(user, id, data.editorState.key); files.set(data.editorState.key, blob);
+      for (const asset of collectReferences(JSON.parse(await blob.text()))) files.set(asset, await assetBlob(user, id, asset));
+    }
+    if (data.r2?.thumbnail) files.set(data.r2.thumbnail, await assetBlob(user, id, data.r2.thumbnail));
+    deleted.set(key, { scene, files, document: data });
+    await updateDoc(reference(user, id), { status: 'deleting' });
+  }
+  await storageRequest(user, id, 'DELETE');
+  await deleteDoc(reference(user, id)); loaded.delete(key);
+  for (const asset of uploaded) if (asset.startsWith(prefix(user, id))) uploaded.delete(asset);
+  await removeDraft(user, id); notify();
+}
+export async function restoreProject(id: string) {
+  const user = await currentOwner(), key = cacheKey(user, id), backup = deleted.get(key);
+  if (!backup) throw new Error('The deleted project is no longer available to undo.');
+  if ((await getDoc(reference(user, id))).exists()) throw new Error('A project with this ID already exists.');
+  await setDoc(reference(user, id), { ...backup.document, status: 'creating' });
+  try {
+    for (const [asset, blob] of backup.files) await upload(user, id, asset.slice(prefix(user, id).length), blob);
+    await updateDoc(reference(user, id), { status: 'active' });
+    loaded.set(key, { scene: backup.scene, revision: backup.document.editorState?.revision ?? null });
+    await saveProject(id, backup.scene, user.uid); deleted.delete(key);
+  } catch (error) { await updateDoc(reference(user, id), { status: 'deleting' }).catch(() => {}); throw error; }
   notify();
 }
-export function deleteProject(id: string) {
-  const scene = readScene(id);
-  localStorage.setItem(TRASH + id, JSON.stringify({ scene, metadata: metadata(id) }));
-  localStorage.removeItem(SCENE + id);
-  localStorage.removeItem(META + id);
-  notify();
-}
-export function restoreProject(id: string) {
-  const raw = localStorage.getItem(TRASH + id);
-  if (!raw) throw new Error('The deleted project is no longer available.');
-  if (localStorage.getItem(SCENE + id)) throw new Error('A project with this ID already exists.');
-  const backup = JSON.parse(raw), scene = validateScene(backup.scene);
-  localStorage.setItem(SCENE + id, JSON.stringify(scene));
-  localStorage.setItem(META + id, JSON.stringify(backup.metadata));
-  localStorage.removeItem(TRASH + id);
-  notify();
-}
-export function sortProjects(projects: Project[], sort: Sort): Project[] {
-  const activity = (p: Project) => Math.max(p.editedAt || 0, p.openedAt || 0);
-  return [...projects].sort((a, b) => {
-    if (sort === 'name-asc' || sort === 'name-desc') return a.scene.name.localeCompare(b.scene.name, undefined, { numeric: true, sensitivity: 'base' }) * (sort === 'name-desc' ? -1 : 1) || a.id.localeCompare(b.id);
-    const difference = sort === 'edited' ? (b.editedAt || 0) - (a.editedAt || 0) : sort === 'created' ? (b.createdAt || 0) - (a.createdAt || 0) : activity(b) - activity(a);
-    return difference || a.scene.name.localeCompare(b.scene.name) || a.id.localeCompare(b.id);
-  });
-}
-export function editedLabel(timestamp: number | null, now = Date.now()): string {
-  if (!timestamp) return 'Edit time unavailable';
-  const minutes = Math.max(0, Math.floor((now - timestamp) / 60000));
-  if (minutes < 1) return 'Edited just now';
-  if (minutes < 60) return `Edited ${minutes}m ago`;
-  if (minutes < 1440) return `Edited ${Math.floor(minutes / 60)}h ago`;
-  if (minutes < 10080) return `Edited ${Math.floor(minutes / 1440)}d ago`;
-  return `Edited ${new Date(timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`;
+export async function frameSvg(id: string, layerId: string, frameId: string): Promise<string | undefined> {
+  const user = await currentOwner(), data = (await getDoc(reference(user, id))).data();
+  if (!data?.editorState?.key) return undefined;
+  const encoded = JSON.parse(await (await assetBlob(user, id, data.editorState.key)).text());
+  const vector = encoded.layers.find((layer: any) => layer.id === layerId)?.media?.frames.find((frame: any) => frame.id === frameId)?.vector;
+  return isReference(vector?.svg) ? (await assetBlob(user, id, vector.svg.$r2)).text() : undefined;
 }

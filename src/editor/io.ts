@@ -42,7 +42,7 @@ export function validateScene(value: unknown): Scene {
     !(s.background === "transparent" || /^#[0-9a-f]{6}$/i.test(s.background)) ||
     typeof s.clip !== "boolean" ||
     !Array.isArray(s.layers) ||
-    s.layers.length > (s.lottie ? 10000 : 500)
+    s.layers.length > (s.layers.some(l => l?.media || l?.sourceFrame) ? 100000 : s.lottie ? 10000 : 500)
   )
     throw new Error("Choose a valid Kinetic project (up to 500 layers).");
   const ids = new Set<string>();
@@ -245,7 +245,7 @@ export function exportSceneSvg(
         const image = (href: string) => `<image href="${escape(href)}" width="${n(l.width)}" height="${n(l.height)}" preserveAspectRatio="none"/>`;
         shape = animated ? l.media.frames.map(f => {
           const start = Math.max(0, (l.startTime ?? 0) + f.timestamp), end = Math.min(scene.duration, start + f.duration);
-          if (end <= start) return "";
+          if (end <= start || f.vector?.status === 'ready') return "";
           const points = [...new Set([0,start,end,scene.duration])].sort((a,b)=>a-b);
           return `<g visibility="hidden"><animate attributeName="visibility" dur="${scene.duration}s" repeatCount="indefinite" calcMode="discrete" keyTimes="${points.map(t=>t/scene.duration).join(';')}" values="${points.map(t=>t>=start && t<end ? 'visible' : 'hidden').join(';')}"/>${image(f.image)}</g>`;
         }).join('') : l.frameImage ? image(l.frameImage) : '';

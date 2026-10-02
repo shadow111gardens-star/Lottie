@@ -7,17 +7,20 @@ import { exportRenderedLottieSvg } from './editor/lottieRenderer';
 import { initialScene } from './editor/model';
 import { PROJECTS_CHANGED, createProject, deleteProject, duplicateProject, editedLabel, openProject, readProjects, renameProject, restoreProject, sortProjects, type Project, type Sort } from './projects/store';
 import './projects/dashboard.css';
+import { getFirebaseAuth } from './lib/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
 
 type Action = 'open' | 'rename' | 'duplicate' | 'delete';
 function ProjectCard({ project, menuOpen, setMenu, action, now }: { project: Project; menuOpen: boolean; setMenu: (id: string | null) => void; action: (action: Action, project: Project) => void; now: number }) {
   const menu = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const [thumbnail, setThumbnail] = useState<{ scene: Project['scene']; url: string | null; failed: boolean } | null>(null);
-  const hasContent = project.scene.layers.some(l => l.visible);
-  const preview = thumbnail?.scene === project.scene ? thumbnail.url : null;
+  const hasContent = project.hasContent ?? project.scene.layers.some(l => l.visible);
+  const preview = project.preview || (thumbnail?.scene === project.scene ? thumbnail.url : null);
   useEffect(() => {
     let cancelled = false;
     const scene = project.scene;
+    if (project.hasContent !== undefined) { setThumbnail({ scene, url: null, failed: hasContent }); return; }
     async function renderPreview() {
       try {
         const time = Math.min(1.5, scene.duration / 2);
@@ -106,32 +109,38 @@ export default function Dashboard() {
     }
   };
   const fileInput = useRef<HTMLInputElement>(null);
-  const refresh = () => { try { const result = readProjects(); setProjects(result.projects); setInvalid(result.invalid); setLoadError(''); } catch { setLoadError('Browser storage is unavailable. Allow local storage to access your projects.'); } };
+  const refreshVersion = useRef(0);
+  const refresh = async () => {
+    const version = ++refreshVersion.current;
+    try { const result = await readProjects(); if (version !== refreshVersion.current) return; setProjects(result.projects); setInvalid(result.invalid); setLoadError(''); }
+    catch (error) { if (version === refreshVersion.current) { setProjects([]); setLoadError(error instanceof Error ? error.message : 'Could not load projects. Please retry.'); } }
+  };
   useEffect(() => {
-    refresh();
+    let unsubscribe: (() => void) | undefined;
+    try { unsubscribe = onAuthStateChanged(getFirebaseAuth(), user => { ++refreshVersion.current; setProjects([]); if (user) void refresh(); else navigate('/', { replace: true }); }); }
+    catch (error) { setLoadError(error instanceof Error ? error.message : 'Authentication is unavailable.'); }
     const previousTitle = document.title; document.title = 'Projects — Kinetic';
-    const storage = (e: StorageEvent) => { if (!e.key || e.key.startsWith('kinetic:') || e.key.startsWith('kinetic-project-meta:')) refresh(); };
-    window.addEventListener(PROJECTS_CHANGED, refresh); window.addEventListener('storage', storage); window.addEventListener('focus', refresh);
+    window.addEventListener(PROJECTS_CHANGED, refresh); window.addEventListener('focus', refresh);
     const timer = setInterval(() => setNow(Date.now()), 60000);
-    return () => { document.title = previousTitle; window.removeEventListener(PROJECTS_CHANGED, refresh); window.removeEventListener('storage', storage); window.removeEventListener('focus', refresh); clearInterval(timer); };
+    return () => { ++refreshVersion.current; unsubscribe?.(); document.title = previousTitle; window.removeEventListener(PROJECTS_CHANGED, refresh); window.removeEventListener('focus', refresh); clearInterval(timer); };
   }, []);
   useEffect(() => { if (!menu) return; const dismiss = () => setMenu(null); document.addEventListener('pointerdown', dismiss); return () => document.removeEventListener('pointerdown', dismiss); }, [menu]);
   const fail = (error: unknown) => setNotice({ text: error instanceof Error && error.name !== 'QuotaExceededError' ? error.message : 'Could not save this change. Your browser storage may be full.', error: true });
-  const open = (id: string) => { openProject(id); navigate(`/editor/${encodeURIComponent(id)}`); };
-  const create = () => { try { const id = createProject(); open(id); } catch (error) { fail(error); } };
-  const action = (type: Action, project: Project) => {
+  const open = async (id: string) => { await openProject(id); navigate(`/editor/${encodeURIComponent(id)}`); };
+  const create = async () => { try { const id = await createProject(); await open(id); } catch (error) { fail(error); void refresh(); } };
+  const action = async (type: Action, project: Project) => {
     setMenu(null);
     try {
-      if (type === 'open') open(project.id);
+      if (type === 'open') await open(project.id);
       else if (type === 'rename' || type === 'delete') setDialog({ type, project });
-      else { const id = duplicateProject(project.id); setActiveTab('all'); setSearch(''); setSort('activity'); refresh(); setNotice({ text: `Created a copy of “${project.scene.name}”.` }); setMenu(null); if (!id) throw new Error('Could not duplicate the project.'); }
+      else { const id = await duplicateProject(project.id); setActiveTab('all'); setSearch(''); setSort('activity'); void refresh(); setNotice({ text: `Created a copy of “${project.scene.name}”.` }); setMenu(null); if (!id) throw new Error('Could not duplicate the project.'); }
     } catch (error) { fail(error); refresh(); }
   };
-  const submit = (name: string) => {
+  const submit = async (name: string) => {
     if (!dialog) return;
     try {
-      if (dialog.type === 'rename') { renameProject(dialog.project.id, name); setNotice({ text: 'Project renamed.' }); }
-      else { deleteProject(dialog.project.id); setNotice({ text: `Deleted “${dialog.project.scene.name}”.`, undo: dialog.project.id }); }
+      if (dialog.type === 'rename') { await renameProject(dialog.project.id, name); setNotice({ text: 'Project renamed.' }); }
+      else { await deleteProject(dialog.project.id); setNotice({ text: `Deleted “${dialog.project.scene.name}”.`, undo: dialog.project.id }); }
       setDialog(null); refresh();
     } catch (error) { fail(error); }
   };
@@ -148,8 +157,8 @@ export default function Dashboard() {
       {(loadError || invalid > 0) && <div className="pd-warning" role="alert">{loadError || `${invalid} unreadable ${invalid === 1 ? 'save was' : 'saves were'} skipped. Those files have not been changed.`}</div>}
       {filtered.length > 0 ? <div className="pd-grid">{filtered.map(project => <ProjectCard key={project.id} project={project} menuOpen={menu === project.id} setMenu={setMenu} action={action} now={now} />)}</div> : !loadError && <div className="pd-empty"><div>{search ? <Search size={28} /> : <FolderOpen size={30} />}</div><h2>{search ? 'No matching projects' : 'Your first idea starts here'}</h2><p>{search ? 'Try another name or search for SVG or Animation.' : 'Create a project or import an SVG to start building.'}</p><button className="pd-button pd-primary" onClick={search ? () => setSearch('') : create}>{search ? 'Clear search' : <><Plus size={16} />Create your first project</>}</button></div>}
     </div></main>
-    <input ref={fileInput} hidden type="file" accept=".svg,.json" aria-label="Import project file" onChange={async e => { const input = e.currentTarget, file = input.files?.[0]; if (!file) return; setImporting(true); try { const text = await file.text(); let id: string; if (/\.json$/i.test(file.name)) { const scene = validateScene(JSON.parse(text)); id = createProject(scene.name, scene); } else { const scene = initialScene(file.name.replace(/\.svg$/i, '')); scene.layers = importSvg(text, file.name).reverse(); const root = new DOMParser().parseFromString(text, 'image/svg+xml').documentElement; const viewBox = (root.getAttribute('viewBox') || '').trim().split(/[\s,]+/).map(Number); const width = parseFloat(root.getAttribute('width') || '') || viewBox[2]; const height = parseFloat(root.getAttribute('height') || '') || viewBox[3]; if (width >= 100 && width <= 4096) scene.width = width; if (height >= 100 && height <= 4096) scene.height = height; id = createProject(scene.name, scene); } setSearch(''); setActiveTab('all'); setSort('activity'); refresh(); setNotice({ text: /\.svg$/i.test(file.name) ? 'SVG imported. Basic vector shapes are editable; transforms, gradients and CSS styles are not imported.' : 'Project imported. Open its card to keep editing.' }); setMenu(null); if (!id) throw new Error('Import failed.'); } catch (error) { fail(error); } finally { input.value = ''; setImporting(false); } }} />
+    <input ref={fileInput} hidden type="file" accept=".svg,.json" aria-label="Import project file" onChange={async e => { const input = e.currentTarget, file = input.files?.[0]; if (!file) return; setImporting(true); try { const text = await file.text(); let id: string; if (/\.json$/i.test(file.name)) { const scene = validateScene(JSON.parse(text)); id = await createProject(scene.name, scene); } else { const scene = initialScene(file.name.replace(/\.svg$/i, '')); scene.layers = importSvg(text, file.name).reverse(); const root = new DOMParser().parseFromString(text, 'image/svg+xml').documentElement; const viewBox = (root.getAttribute('viewBox') || '').trim().split(/[\s,]+/).map(Number); const width = parseFloat(root.getAttribute('width') || '') || viewBox[2]; const height = parseFloat(root.getAttribute('height') || '') || viewBox[3]; if (width >= 100 && width <= 4096) scene.width = width; if (height >= 100 && height <= 4096) scene.height = height; id = await createProject(scene.name, scene); } setSearch(''); setActiveTab('all'); setSort('activity'); refresh(); setNotice({ text: /\.svg$/i.test(file.name) ? 'SVG imported. Basic vector shapes are editable; transforms, gradients and CSS styles are not imported.' : 'Project imported. Open its card to keep editing.' }); setMenu(null); if (!id) throw new Error('Import failed.'); } catch (error) { fail(error); } finally { input.value = ''; setImporting(false); } }} />
     {dialog && <ProjectDialog key={`${dialog.type}-${dialog.project.id}`} dialog={dialog} close={() => setDialog(null)} submit={submit} />}
-    {notice && <div className={`pd-toast ${notice.error ? 'pd-toast-error' : ''}`} role={notice.error ? 'alert' : 'status'}>{!notice.error && <Check size={16} />}<span>{notice.text}</span>{notice.undo && <button onClick={() => { try { restoreProject(notice.undo!); refresh(); setNotice({ text: 'Project restored.' }); } catch (error) { fail(error); } }}>Undo</button>}<button className="pd-toast-close" aria-label="Dismiss notification" onClick={() => setNotice(null)}><X size={16} /></button></div>}
+    {notice && <div className={`pd-toast ${notice.error ? 'pd-toast-error' : ''}`} role={notice.error ? 'alert' : 'status'}>{!notice.error && <Check size={16} />}<span>{notice.text}</span>{notice.undo && <button onClick={async () => { try { await restoreProject(notice.undo!); refresh(); setNotice({ text: 'Project restored.' }); } catch (error) { fail(error); } }}>Undo</button>}<button className="pd-toast-close" aria-label="Dismiss notification" onClick={() => setNotice(null)}><X size={16} /></button></div>}
   </div>;
 }

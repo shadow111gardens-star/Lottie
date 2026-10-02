@@ -4,6 +4,7 @@ import { writeFile, unlink } from "node:fs/promises";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { Window } from "happy-dom";
+import { editorStorageMock } from './editor-storage-mock.mjs';
 const win = new Window({
   url: "http://localhost:5173/editor/new-interactions",
   width: 1440,
@@ -125,6 +126,7 @@ const bundle = await build({
   format: "esm",
   packages: "external",
   loader: { ".css": "empty" },
+  plugins: [editorStorageMock],
   write: false,
 });
 await writeFile(file, bundle.outputFiles[0].text);
@@ -139,7 +141,8 @@ console.error = (...args) => {
   originalError(...args);
 };
 try {
-  const { default: Editor } = await import(pathToFileURL(file));
+  const { Workspace: Editor } = await import(pathToFileURL(file));
+  const initial = { version: 1, name: 'Untitled scene', width: 960, height: 540, duration: 6, background: '#ffffff', clip: true, layers: [], editorView: { time: 1.5, zoom: .55, selected: null, expanded: [], timelineHeight: 290 } };
   const container = document.createElement("div");
   document.body.append(container);
   root = createRoot(container);
@@ -156,7 +159,7 @@ try {
             null,
             React.createElement(Route, {
               path: "/editor/:projectId",
-              element: React.createElement(Editor),
+              element: React.createElement(Editor, { projectId: 'new-interactions', initial }),
             }),
           ),
         ),
@@ -500,10 +503,10 @@ try {
   assert.equal(xml.querySelector("parsererror"), null);
   check("Zoom, pan, fit and SVG export from actual edited scene");
   await act(async () => new Promise((resolve) => setTimeout(resolve, 400)));
-  const saved = JSON.parse(localStorage.getItem("kinetic:new-interactions"));
+  const saved = globalThis.editorDraft;
   assert.ok(saved.layers.some((l) => l.text === "Hello SVG"));
   assert.equal(errors.length, 0, "React runtime errors: " + errors.join("\n"));
-  check("Local save and no React runtime errors");
+  check("Private draft preservation and no React runtime errors");
   await button("Import");
   assert.ok(
     all('[role="menuitem"]').some(

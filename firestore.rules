@@ -1,0 +1,14 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{uid}/projects/{projectId} {
+      function owner() { return request.auth != null && request.auth.uid == uid; }
+      allow read, delete: if owner();
+      allow create: if owner() && request.resource.data.projectId == projectId
+        && request.resource.data.ownerId == uid;
+      allow update: if owner() && request.resource.data.projectId == projectId
+        && request.resource.data.ownerId == uid
+        && request.resource.data.createdAt == resource.data.createdAt;
+    }
+  }
+}

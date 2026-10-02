@@ -156,6 +156,7 @@ export function exportLottie(scene: Scene): Node {
     };
     if (l.media) {
       for (const frame of l.media.frames) {
+        if (frame.vector?.status === 'ready') continue;
         const id = `media-${l.id}-${frame.id}`;
         assets.push({ id, w: l.media.width, h: l.media.height, u: "", p: frame.image, e: 1 });
         layers.push({ ...base, ind: layers.length + 1, ty: 2, nm: `${l.name} frame ${frame.number}`, refId: id,
