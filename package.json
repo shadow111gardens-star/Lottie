@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit",
     "test:firebase": "node tests/firebase.mjs",
     "test:auth": "node tests/google-auth.mjs",
-    "test:payments": "node tests/payments.mjs && node tests/billing-ui.mjs",
+    "test:payments": "node tests/payments.mjs && node tests/billing-ui.mjs && node tests/paid-access.mjs",
     "test:payments:emulator": "node scripts/test-cloud.mjs --payments",
     "check:payments": "node scripts/check-payments.mjs",
     "test": "node tests/editor.mjs && node tests/lottie.mjs && node tests/render.mjs && node tests/interactions.mjs && node tests/dashboard-preview.mjs && node tests/media.mjs && node tests/media-ui.mjs",

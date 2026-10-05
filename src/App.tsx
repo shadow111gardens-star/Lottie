@@ -5,6 +5,7 @@ import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import Lenis from "lenis";
 import Dashboard from "./Dashboard";
+import PaidAccessGate from "./auth/PaidAccessGate";
 import Editor from "./Editor";
 import { GoogleSignInButton, GoogleSignInProvider, useGoogleSignIn } from './auth/GoogleSignIn';
 import { createCheckout, type PaidPlan } from './lib/billing';
@@ -1331,13 +1332,13 @@ export default function App() {
   const [loading, setLoading] = useState(true);
 
   return (
-    <GoogleSignInProvider><Routes>
+    <GoogleSignInProvider><PaidAccessGate pricing={<Pricing />}><Routes>
       <Route path="/" element={<LandingPage loading={loading} setLoading={setLoading} />} />
       <Route path="/privacy" element={<PrivacyPage />} />
       <Route path="/terms" element={<TermsPage />} />
       <Route path="/dashboard" element={<Dashboard />} />
       <Route path="/editor" element={<Editor />} />
       <Route path="/editor/:projectId" element={<Editor />} />
-    </Routes></GoogleSignInProvider>
+    </Routes></PaidAccessGate></GoogleSignInProvider>
   );
 }
