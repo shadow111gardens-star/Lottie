@@ -6,7 +6,7 @@ import { importSvg } from './editor/importSvg';
 import { exportRenderedLottieSvg } from './editor/lottieRenderer';
 import { initialScene } from './editor/model';
 import { PROJECTS_CHANGED, cachedProjects, createBlankProject, createProject, deleteProject, duplicateProject, editedLabel, openProject, readProjects, renameProject, restoreProject, sortProjects, type Project, type Sort } from './projects/store';
-import { projectStopped } from './projects/lifecycle';
+import { PROJECT_REMOVED, projectStopped } from './projects/lifecycle';
 import './projects/dashboard.css';
 import './projects/all-projects.css';
 import { projectCategory, type ProjectCategory } from './projects/category';
@@ -136,9 +136,11 @@ export default function Dashboard() {
     try { unsubscribe = onAuthStateChanged(getFirebaseAuth(), user => { ++refreshVersion.current; setProjects(cachedProjects().projects); if (user) void refresh(); else navigate('/', { replace: true }); }); }
     catch (error) { setLoadError(error instanceof Error ? error.message : 'Authentication is unavailable.'); }
     const previousTitle = document.title; document.title = 'Projects — Kinetic';
+    const removed = () => { ++refreshVersion.current; setProjects(items => items.filter(project => !projectStopped(getFirebaseAuth().currentUser?.uid ?? '', project.id))); };
+    window.addEventListener(PROJECT_REMOVED, removed);
     window.addEventListener(PROJECTS_CHANGED, refresh); window.addEventListener('focus', refresh);
     const timer = setInterval(() => setNow(Date.now()), 60000);
-    return () => { ++refreshVersion.current; unsubscribe?.(); document.title = previousTitle; window.removeEventListener(PROJECTS_CHANGED, refresh); window.removeEventListener('focus', refresh); clearInterval(timer); };
+    return () => { ++refreshVersion.current; unsubscribe?.(); document.title = previousTitle; window.removeEventListener(PROJECT_REMOVED, removed); window.removeEventListener(PROJECTS_CHANGED, refresh); window.removeEventListener('focus', refresh); clearInterval(timer); };
   }, []);
   useEffect(() => { if (!menu) return; const dismiss = () => setMenu(null); document.addEventListener('pointerdown', dismiss); return () => document.removeEventListener('pointerdown', dismiss); }, [menu]);
   const fail = (error: unknown) => setNotice({ text: error instanceof Error && error.name !== 'QuotaExceededError' ? error.message : 'Could not save this change. Your browser storage may be full.', error: true });

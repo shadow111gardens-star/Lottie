@@ -21,7 +21,14 @@ type Reference = { $r2: string; format: 'text' | 'dataUrl' };
 const loaded = new Map<string, { scene: Scene; revision: string | null }>();
 const queues = new Map<string, Promise<void>>();
 const uploaded = new Set<string>();
-const deleted = new Map<string, { scene: Scene; files: Map<string, Blob>; document: DocumentData }>();
+const deleted = new Map<string, { scene: Scene; files: Map<string, Blob>; document: DocumentData; removedAt: number }>();
+const permanentAssetDeletionsKey = 'svgforge-permanent-asset-deletions';
+function permanentAssetDeletions(): Record<string, number> {
+  try {
+    const value = JSON.parse(window.localStorage.getItem(permanentAssetDeletionsKey) || '{}');
+    return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  } catch { return {}; }
+}
 const cleanupRetries = new Map<string, ReturnType<typeof setTimeout>>();
 const creations = new Map<string, { scene: Scene; pending?: Promise<void>; timer?: ReturnType<typeof setTimeout>; attempts: number }>();
 const cacheKey = (user: User, id: string) => `${user.uid}:${id}`;
@@ -234,6 +241,49 @@ export async function readUploadedAssets(id: string): Promise<ProjectAsset[]> {
     return { key, name, kind: assetKind(name) };
   });
 }
+/** Delete an asset's owning projects so snapshots, derived files and drafts cannot restore it. */
+export async function deleteAsset(projectId: string, asset: ProjectAsset): Promise<void> {
+  const user = await currentOwner();
+  const listing = await readProjects();
+  if (listing.invalid) throw new Error('Some projects could not be read. Retry before deleting this asset everywhere.');
+  const targets = new Set([projectId]);
+  let hash: string | undefined;
+  if (asset.key) {
+    if (!asset.key.startsWith(prefix(user, projectId))) throw new Error('Asset does not belong to this project.');
+    hash = asset.key.split('/').at(-2);
+    if (!hash || !/^[a-f0-9]{64}$/.test(hash)) hash = await digest(await assetBlob(user, projectId, asset.key));
+    // Include older uploads absent from the current Firestore manifest.
+    const uploads = await Promise.all(listing.projects.map(async project => ({ project, files: await readUploadedAssets(project.id) })));
+    assertOwner(user);
+    for (const { project, files } of uploads) {
+      const keys = new Set([...(project.assets ?? []), ...files].flatMap(file => file.key ? [file.key] : []));
+      for (const key of keys) {
+        const storedHash = key.split('/').at(-2);
+        if (storedHash === hash || (!/^[a-f0-9]{64}$/.test(storedHash ?? '') && await digest(await assetBlob(user, project.id, key)) === hash)) { targets.add(project.id); break; }
+      }
+    }
+  }
+  assertOwner(user);
+  // Existing project Undo must not bring this permanently deleted upload back.
+  if (hash) {
+    try { window.localStorage.setItem(permanentAssetDeletionsKey, JSON.stringify({ ...permanentAssetDeletions(), [`${user.uid}:${hash}`]: Date.now() })); }
+    catch { /* Current-tab backups are still purged when browser storage is restricted. */ }
+    for (const [key, backup] of deleted) {
+      if (!key.startsWith(`${user.uid}:`)) continue;
+      for (const [file, blob] of backup.files) {
+        const storedHash = file.split('/').at(-2);
+        if (storedHash === hash || (!/^[a-f0-9]{64}$/.test(storedHash ?? '') && await digest(blob) === hash)) { deleted.delete(key); break; }
+      }
+    }
+  }
+  const failures: string[] = [];
+  for (const id of targets) {
+    assertOwner(user);
+    try { await deleteProject(id, false); }
+    catch (error) { failures.push(error instanceof Error ? error.message : 'Asset cleanup failed.'); }
+  }
+  if (failures.length) throw new Error(failures.join(' '));
+}
 export async function loadProject(id: string): Promise<Scene> {
   const user = await currentOwner(), key = cacheKey(user, id);
   assertProjectActive(user.uid, id);
@@ -345,8 +395,12 @@ export async function duplicateProject(id: string) {
   }
   notify(); return nextId;
 }
-export async function deleteProject(id: string) {
+export async function deleteProject(id: string, retainUndo = true) {
   const user = await currentOwner(), key = cacheKey(user, id);
+  if (!retainUndo) {
+    try { window.localStorage.setItem(permanentAssetDeletionsKey, JSON.stringify({ ...permanentAssetDeletions(), [`project:${key}`]: Date.now() })); }
+    catch { /* In-memory cleanup and server deletion remain authoritative. */ }
+  }
   clearTimeout(cleanupRetries.get(key)); cleanupRetries.delete(key);
   const cached = loaded.get(key)?.scene;
   stopProject(user.uid, id);
@@ -354,6 +408,10 @@ export async function deleteProject(id: string) {
   // Let already-issued Firestore writes settle; all queued/new saves are stopped.
   await Promise.allSettled([queues.get(key), creation?.pending]);
   creations.delete(key); loaded.delete(key); queues.delete(key);
+  deleted.delete(key);
+  const listing = listings.get(user.uid);
+  if (listing) listings.set(user.uid, { ...listing, projects: listing.projects.filter(project => project.id !== id) });
+  for (const thumbnail of thumbnailCache.keys()) if (thumbnail.startsWith(`${key}:`)) thumbnailCache.delete(thumbnail);
   for (const asset of uploaded) if (asset.startsWith(prefix(user, id))) uploaded.delete(asset);
   await removeDraft(user, id);
   try { for (const storage of [window.localStorage, window.sessionStorage]) {
@@ -375,7 +433,7 @@ export async function deleteProject(id: string) {
       await deleteDoc(reference(user, id)).catch(() => {});
     }
   }
-  if (document) {
+  if (document && retainUndo) {
     // Preserve the existing Undo using private cleanup reads only; regular reads,
     // loaders and autosaves were cancelled before any destructive operation.
     const files = new Map<string, Blob>();
@@ -388,7 +446,7 @@ export async function deleteProject(id: string) {
       for (const asset of document.assets ?? []) if (typeof asset.key === 'string' && !files.has(asset.key)) files.set(asset.key, await read(asset.key));
       if (document.r2?.thumbnail) files.set(document.r2.thumbnail, await read(document.r2.thumbnail));
       const scene = cached || (document.editorState?.inline ? validateScene(document.editorState.inline) : document.editorState?.key ? validateScene(await hydrateForUndo()) : { ...initialScene(document.name), ...document.settings, layers: [] });
-      deleted.set(key, { scene, files, document });
+      deleted.set(key, { scene, files, document, removedAt: Date.now() });
       async function hydrateForUndo() {
         const decode = async (value: any): Promise<any> => isReference(value) ? value.format === 'dataUrl' ? dataUrl(files.get(value.$r2)!) : files.get(value.$r2)!.text() : Array.isArray(value) ? Promise.all(value.map(decode)) : value && typeof value === 'object' ? Object.fromEntries(await Promise.all(Object.entries(value).map(async ([k, v]) => [k, await decode(v)]))) : value;
         return decode(JSON.parse(await files.get(document!.editorState.key)!.text()));
@@ -404,7 +462,7 @@ export async function deleteProject(id: string) {
   if (failures.length) {
     cleanupRetries.set(key, setTimeout(() => {
       cleanupRetries.delete(key);
-      if (getFirebaseAuth().currentUser?.uid === user.uid) void deleteProject(id).catch(() => {});
+      if (getFirebaseAuth().currentUser?.uid === user.uid) void deleteProject(id, retainUndo).catch(() => {});
     }, 5000));
     throw new Error(`${failures.join(' ')} Cleanup will retry in the background.`);
   }
@@ -413,6 +471,16 @@ export async function restoreProject(id: string) {
   const user = await currentOwner(), key = cacheKey(user, id), backup = deleted.get(key);
   if (cleanupRetries.has(key)) throw new Error('Project cleanup is still retrying. Wait before undoing deletion.');
   if (!backup) throw new Error('The deleted project is no longer available to undo.');
+  const permanent = permanentAssetDeletions();
+  const deletedFile = (await Promise.all([...backup.files].map(async ([file, blob]) => {
+    let hash = file.split('/').at(-2);
+    if (!hash || !/^[a-f0-9]{64}$/.test(hash)) hash = await digest(blob);
+    return (permanent[`${user.uid}:${hash}`] ?? 0) >= backup.removedAt;
+  }))).some(Boolean);
+  if ((permanent[`project:${key}`] ?? 0) >= backup.removedAt || deletedFile) {
+    deleted.delete(key);
+    throw new Error('An asset in this project was permanently deleted. This project can no longer be restored.');
+  }
   if ((await getDoc(reference(user, id))).exists()) throw new Error('A project with this ID already exists.');
   resumeProject(user.uid, id);
   await setDoc(reference(user, id), { ...backup.document, status: 'creating' });

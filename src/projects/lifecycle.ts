@@ -22,3 +22,20 @@ export function stopProject(owner: string, id: string) {
   window.dispatchEvent(new window.CustomEvent(PROJECT_REMOVED, { detail: { owner, id } }));
 }
 export function resumeProject(owner: string, id: string) { stopped.delete(key(owner, id)); persist(); }
+
+// Close open editors in other tabs before their autosave can resurrect a deleted asset.
+window.addEventListener('storage', event => {
+  if (event.key !== tombstonesKey || !event.newValue) return;
+  try {
+    const entries = JSON.parse(event.newValue);
+    if (!Array.isArray(entries)) return;
+    for (const entry of entries) {
+      if (typeof entry !== 'string' || stopped.has(entry)) continue;
+      const separator = entry.indexOf(':');
+      if (separator < 1) continue;
+      stopped.add(entry); requests.get(entry)?.abort(); requests.delete(entry);
+      window.dispatchEvent(new window.CustomEvent(PROJECT_REMOVED, { detail: { owner: entry.slice(0, separator), id: entry.slice(separator + 1) } }));
+    }
+    for (const entry of stopped) if (!entries.includes(entry)) stopped.delete(entry);
+  } catch { /* Ignore malformed browser storage events. */ }
+});

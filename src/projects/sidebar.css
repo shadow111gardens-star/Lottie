@@ -20,3 +20,5 @@
 .ma-actions{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .ma-actions .pd-button{height:32px;font-size:11px!important}
 @media(max-width:650px){.pd-sidebar nav{flex-wrap:wrap}.pd-sidebar nav button{flex:1;min-width:120px}.pd-library-label{display:block;margin-top:12px;padding:12px 8px 6px}.pd-sidebar-bottom{padding-top:18px;display:grid;grid-template-columns:1fr auto;align-items:end;gap:12px}.pd-upgrade{padding:12px}.pd-upgrade p{margin-bottom:8px}.pd-sidebar-bottom .pd-logout{width:auto;padding:10px 14px}.ma-toolbar{flex-wrap:wrap}.ma-actions .pd-button{flex:none}}
+.ma-actions{flex-wrap:wrap}.ma-actions .ma-delete{color:#be3549;border-color:#f0d4da;background:#fff7f8}.ma-actions .ma-delete:hover{background:#ffedf0}.pd-modal{max-height:calc(100dvh - 40px);overflow-y:auto}
+.pd-modal-backdrop{grid-template-columns:minmax(0,1fr)}.pd-modal{min-width:0;justify-self:center;width:min(420px,100%)}

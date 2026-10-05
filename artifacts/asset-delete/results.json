@@ -1,0 +1,128 @@
+[
+  {
+    "size": "320x740",
+    "route": "/dashboard",
+    "width": 320,
+    "scrollWidth": 320,
+    "overflow": []
+  },
+  {
+    "size": "320x740",
+    "route": "Project list",
+    "width": 320,
+    "scrollWidth": 320,
+    "overflow": []
+  },
+  {
+    "size": "320x740",
+    "route": "Project filters",
+    "width": 320,
+    "scrollWidth": 320,
+    "overflow": []
+  },
+  {
+    "size": "320x740",
+    "route": "PNG.*SVG",
+    "width": 320,
+    "scrollWidth": 320,
+    "overflow": []
+  },
+  {
+    "size": "320x740",
+    "route": "My assets",
+    "width": 320,
+    "scrollWidth": 320,
+    "overflow": []
+  },
+  {
+    "size": "320x740",
+    "route": "Asset delete dialog",
+    "width": 320,
+    "scrollWidth": 320,
+    "overflow": []
+  },
+  {
+    "size": "768x1024",
+    "route": "/dashboard",
+    "width": 768,
+    "scrollWidth": 768,
+    "overflow": []
+  },
+  {
+    "size": "768x1024",
+    "route": "Project list",
+    "width": 768,
+    "scrollWidth": 768,
+    "overflow": []
+  },
+  {
+    "size": "768x1024",
+    "route": "Project filters",
+    "width": 768,
+    "scrollWidth": 768,
+    "overflow": []
+  },
+  {
+    "size": "768x1024",
+    "route": "PNG.*SVG",
+    "width": 768,
+    "scrollWidth": 768,
+    "overflow": []
+  },
+  {
+    "size": "768x1024",
+    "route": "My assets",
+    "width": 768,
+    "scrollWidth": 768,
+    "overflow": []
+  },
+  {
+    "size": "768x1024",
+    "route": "Asset delete dialog",
+    "width": 768,
+    "scrollWidth": 768,
+    "overflow": []
+  },
+  {
+    "size": "1440x900",
+    "route": "/dashboard",
+    "width": 1440,
+    "scrollWidth": 1440,
+    "overflow": []
+  },
+  {
+    "size": "1440x900",
+    "route": "Project list",
+    "width": 1440,
+    "scrollWidth": 1440,
+    "overflow": []
+  },
+  {
+    "size": "1440x900",
+    "route": "Project filters",
+    "width": 1440,
+    "scrollWidth": 1440,
+    "overflow": []
+  },
+  {
+    "size": "1440x900",
+    "route": "PNG.*SVG",
+    "width": 1440,
+    "scrollWidth": 1440,
+    "overflow": []
+  },
+  {
+    "size": "1440x900",
+    "route": "My assets",
+    "width": 1440,
+    "scrollWidth": 1440,
+    "overflow": []
+  },
+  {
+    "size": "1440x900",
+    "route": "Asset delete dialog",
+    "width": 1440,
+    "scrollWidth": 1440,
+    "overflow": []
+  }
+]

@@ -1,4 +1,4 @@
-﻿import assert from 'node:assert/strict';
+import assert from 'node:assert/strict';
 import { build } from 'esbuild';
 import { writeFile, unlink } from 'node:fs/promises';
 import { Window } from 'happy-dom';
@@ -14,7 +14,7 @@ const bundle=await build({stdin:{contents:'export {default as Dashboard} from ".
   build.onResolve({filter:/projects\/store$/},()=>({path:'store',namespace:'dashboard-test'}));
   build.onResolve({filter:/lib\/firebase$/},()=>({path:'firebase',namespace:'dashboard-test'}));
   build.onResolve({filter:/^firebase\/auth$/},()=>({path:'auth',namespace:'dashboard-test'}));
-  build.onLoad({filter:/.*/,namespace:'dashboard-test'},args=>({contents:args.path==='storage'?'export async function currentOwner(){return {uid:globalThis.assetOwner||"preview-user"};}export function assertOwner(user){if(user.uid!==(globalThis.assetOwner||"preview-user"))throw new Error("Account changed");}export async function assetBlob(){return new Blob(["asset"]);}export async function dataUrl(){}':args.path==='firebase'?'export const auth={currentUser:{uid:"preview-user"}};export function getFirebaseAuth(){return auth;}':args.path==='auth'?'export function onAuthStateChanged(auth, callback){queueMicrotask(()=>callback({uid:"preview-user"}));return ()=>{};}export async function signOut(){}':`export const PROJECTS_CHANGED='kinetic-projects-changed';export function cachedProjects(){return {projects:globalThis.previewProjects,invalid:0};}export async function readProjects(){return {projects:globalThis.previewProjects,invalid:0};}export function sortProjects(projects){return projects;}export function editedLabel(){return 'Edited just now';}export function createBlankProject(){globalThis.blankCreates=(globalThis.blankCreates||0)+1;return {id:"instant-blank"};}export async function loadProject(id){return globalThis.previewProjects.find(project=>project.id===id).scene;}export async function readUploadedAssets(){return [];}export async function uploadLibraryFile(file){globalThis.libraryUploads=(globalThis.libraryUploads||[]).concat(file.name);return "uploaded-file";}export async function createProject(){}export async function deleteProject(id){return globalThis.testDelete?.(id);}export async function duplicateProject(id){return globalThis.testDuplicate?.(id);}export async function openProject(){}export async function renameProject(id,name){return globalThis.testRename?.(id,name);}export async function restoreProject(){}`}));
+  build.onLoad({filter:/.*/,namespace:'dashboard-test'},args=>({contents:args.path==='storage'?'export async function currentOwner(){return {uid:globalThis.assetOwner||"preview-user"};}export function assertOwner(user){if(user.uid!==(globalThis.assetOwner||"preview-user"))throw new Error("Account changed");}export async function assetBlob(){return new Blob(["asset"]);}export async function dataUrl(){}':args.path==='firebase'?'export const auth={currentUser:{uid:"preview-user"}};export function getFirebaseAuth(){return auth;}':args.path==='auth'?'export function onAuthStateChanged(auth, callback){queueMicrotask(()=>callback({uid:"preview-user"}));return ()=>{};}export async function signOut(){}':`export const PROJECTS_CHANGED='kinetic-projects-changed';export function cachedProjects(){return {projects:globalThis.previewProjects,invalid:0};}export async function readProjects(){return {projects:globalThis.previewProjects,invalid:0};}export function sortProjects(projects){return projects;}export function editedLabel(){return 'Edited just now';}export function createBlankProject(){globalThis.blankCreates=(globalThis.blankCreates||0)+1;return {id:"instant-blank"};}export async function loadProject(id){return globalThis.previewProjects.find(project=>project.id===id).scene;}export async function readUploadedAssets(){return [];}export async function uploadLibraryFile(file){globalThis.libraryUploads=(globalThis.libraryUploads||[]).concat(file.name);return "uploaded-file";}export async function createProject(){}export async function deleteAsset(id,asset){return globalThis.testDeleteAsset?.(id,asset);}export async function deleteProject(id){return globalThis.testDelete?.(id);}export async function duplicateProject(id){return globalThis.testDuplicate?.(id);}export async function openProject(){}export async function renameProject(id,name){return globalThis.testRename?.(id,name);}export async function restoreProject(){}`}));
  }
 }]});
 await writeFile(file,bundle.outputFiles[0].text);
@@ -100,4 +100,23 @@ try {
  assert.equal(globalThis.blankCreates,1,'Rapid clicks create only one project');
  console.log('PASS Instant local New Project handler rejects rapid duplicate clicks');
  console.log('PASS Dashboard renders Lottie and native thumbnails without crashing under StrictMode');
+ await click([...host.querySelectorAll('nav button')].find(button=>button.textContent.includes('My assets')));
+ const deleteButton=()=>host.querySelector('[aria-label="Delete Renamed fast.svg"]');
+ assert.ok(deleteButton());
+ let deleteAssetCalls=0;
+ globalThis.testDeleteAsset=async()=>{deleteAssetCalls++;throw new Error('Asset cleanup unavailable');};
+ await click(deleteButton());assert.match(host.querySelector('[role="dialog"]').textContent,/linked projects and all files/);
+ assert.equal(document.activeElement,host.querySelector('[data-cancel]'));
+ await click(host.querySelector('[data-cancel]'));assert.equal(deleteAssetCalls,0);assert.ok(deleteButton());
+ await click(deleteButton());await click(host.querySelector('.pd-modal .pd-delete-button'));
+ assert.equal(deleteAssetCalls,1);assert.match(host.querySelector('.pd-modal [role="alert"]').textContent,/cleanup unavailable/);assert.ok(deleteButton());
+ let finishDelete;
+ globalThis.testDeleteAsset=(id,asset)=>{deleteAssetCalls++;assert.equal(id,'native');assert.equal(asset.name,'Renamed fast.svg');return new Promise(resolve=>{finishDelete=()=>{globalThis.previewProjects=globalThis.previewProjects.filter(project=>project.id!==id);window.dispatchEvent(new win.Event('kinetic-projects-changed'));resolve();};});};
+ await React.act(async()=>{const button=host.querySelector('.pd-modal .pd-delete-button');button.click();button.click();});
+ assert.equal(deleteAssetCalls,2);assert.equal(host.querySelector('.pd-modal .pd-delete-button').disabled,true);
+ await React.act(async()=>{finishDelete();await new Promise(resolve=>setTimeout(resolve,10));});
+ assert.equal(host.querySelector('[role="dialog"]'),null);assert.equal(deleteButton(),null);assert.match(host.textContent,/all their files deleted/);
+ await click([...host.querySelectorAll('nav button')].find(button=>button.textContent.includes('All projects')));
+ assert.equal(host.querySelector('[data-project-id="native"]'),null);
+ console.log('PASS Asset Delete confirmation/cancel, error and retry, duplicate-click guard, successful removal from assets and projects');
 } finally {if(root)await React.act(async()=>root.unmount());await unlink(file);win.happyDOM.abort();}
