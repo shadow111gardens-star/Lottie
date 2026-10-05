@@ -36,8 +36,17 @@ try{
  for (const code of [401,500]) { ok=false;responseStatus=code;await React.act(async()=>{window.dispatchEvent(new win.Event('focus'));await pause(10);});gated();assert.match(host.textContent,/Retrying/); }
  responseStatus=200;
  ok=true;entitlement={plan:'pro',active:true,lifetime:false,subscriptionStatus:'active'};await React.act(async()=>{window.dispatchEvent(new win.Event('focus'));await pause(10);});assert.ok(host.querySelector('.protected-content'));assert.equal(host.querySelector('[role="dialog"]'),null);
- entitlement=null;await render('/dashboard');gated();const callsBefore=calls;
- entitlement={plan:'lifetime',active:true,lifetime:true};await React.act(async()=>{await pause(2100);});assert.ok(calls>callsBefore,'Poll even without a checkout return query');assert.ok(host.querySelector('.protected-content'));assert.equal(host.querySelector('[role="dialog"]'),null);
+ // A delayed webhook must unlock either plan without a refresh or user gesture.
+ for(const paid of [{plan:'pro',active:true,lifetime:false,subscriptionStatus:'active'},{plan:'lifetime',active:true,lifetime:true}]){
+   entitlement=null;await render('/dashboard');gated();const callsBefore=calls;
+   entitlement=paid;await React.act(async()=>{await pause(2100);});
+   assert.ok(calls>callsBefore,'Poll even without a checkout return query');
+   assert.ok(host.querySelector('.protected-content'));
+   assert.equal(host.querySelector('[role="dialog"]'),null);
+   assert.equal(host.querySelector('.paid-access-preview'),null,'Remove blurred preview after payment confirmation');
+   assert.equal(host.querySelector('.paid-access-backdrop'),null);
+   assert.notEqual(document.body.style.overflow,'hidden','Restore Dashboard scrolling');
+ }
  let complete;deferred=new Promise(resolve=>{complete=resolve;});entitlement=null;await render('/editor/slow-account');gated();
  deferred=null;
  await React.act(async()=>{globalThis.gateUser={uid:'different-user',getIdToken:async()=> 'other-token'};for(const listener of globalThis.gateAuthListeners)listener(globalThis.gateUser);await pause(10);});gated();
