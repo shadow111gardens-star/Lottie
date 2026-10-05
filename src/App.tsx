@@ -19,17 +19,11 @@ import {
   Palette,
   MousePointer2,
   Video,
-  BarChart3,
   Rocket,
-  Star,
-  Quote,
   Layers,
-  Zap,
-  Shield,
-  Cpu,
-  Eye,
-  FileVideo,
   FileCode,
+  Upload,
+  Download,
   Crown,
   Infinity as InfinityIcon,
 } from "lucide-react";
@@ -62,46 +56,46 @@ interface ExportCard {
 
 /* ───────── Data ───────── */
 const navLinks = [
-  { label: "Manifesto", href: "#manifesto" },
+  { label: "Why Vekto", href: "#manifesto" },
   { label: "Capabilities", href: "#capabilities" },
   { label: "Showcase", href: "#showcase" },
   { label: "Pricing", href: "#pricing" },
 ];
 
 const horizontalCards = [
-  { title: "Generate", subtitle: "AI writes your motion", icon: Wand2 },
-  { title: "Sync", subtitle: "Brand DNA applied", icon: Palette },
-  { title: "Edit", subtitle: "No keyframes needed", icon: MousePointer2 },
-  { title: "Ship", subtitle: "Any format, anywhere", icon: Rocket },
-  { title: "Analyze", subtitle: "Know what converts", icon: BarChart3 },
+  { title: "Import", subtitle: "Start with the files you have", icon: Upload },
+  { title: "Trace", subtitle: "Turn pixels into editable paths", icon: Wand2 },
+  { title: "Edit", subtitle: "Get the details how you want them", icon: MousePointer2 },
+  { title: "Animate", subtitle: "Set the pace with keyframes", icon: Layers },
+  { title: "Export", subtitle: "Take your work with you", icon: Download },
 ];
 
 const features3D = [
-  { icon: Cpu, title: "AI Motion Core", desc: "Trained on millions of premium animations." },
-  { icon: Eye, title: "Vision Preview", desc: "See every variant before you commit." },
-  { icon: Layers, title: "Layer Logic", desc: "Complex scenes, simple controls." },
-  { icon: Zap, title: "Instant Export", desc: "Lottie, SVG, MP4, React — one click." },
-  { icon: Shield, title: "Enterprise Safe", desc: "SOC 2, SSO, audit logs." },
-  { icon: Video, title: "Cinematic Quality", desc: "4K motion, optimized delivery." },
+  { icon: Wand2, title: "PNG to SVG", desc: "Have a logo or illustration as a PNG? Turn it into SVG paths you can edit." },
+  { icon: Palette, title: "Make it your own", desc: "Change a color, move a shape, or add some text. The small details are yours to adjust." },
+  { icon: Layers, title: "A timeline you can see", desc: "Set keyframes, adjust the timing, and play it back until the movement feels right." },
+  { icon: Video, title: "Work with your clips", desc: "Import a video or GIF up to 10 seconds long, then inspect and vectorize its frames." },
+  { icon: Upload, title: "Keep your files close", desc: "Find your uploads and saved projects in one workspace, ready for the next round of changes." },
+  { icon: Download, title: "Export when you're ready", desc: "Download an SVG, animated SVG, or Lottie JSON file to use in your next project." },
 ];
 
 const exportCards: ExportCard[] = [
-  { num: "01", title: "MP4", desc: "Share-ready video at smooth frame rates.", icon: FileVideo },
-  { num: "02", title: "Animated SVG", desc: "Sharp, lightweight motion for the web.", icon: FileCode },
-  { num: "03", title: "Lottie JSON", desc: "Native vectors and editable motion for apps.", icon: Rocket },
+  { num: "01", title: "SVG", desc: "Save a still frame as a vector file. Handy for logos, illustrations, and icons.", icon: FileCode },
+  { num: "02", title: "Animated SVG", desc: "Keep the movement in an SVG file you can use on the web.", icon: FileCode },
+  { num: "03", title: "Lottie JSON", desc: "Export your animation for projects that use a Lottie player.", icon: Rocket },
 ];
 
-const testimonials = [
-  { quote: "We stopped outsourcing motion. vekto is our entire animation department now.", author: "Priya Patel", role: "Founder, CraftStudio" },
-  { quote: "The scroll-driven demos alone increased our demo requests by 3x.", author: "Rahul Shah", role: "Product Lead, NexusPay" },
-  { quote: "It feels like the future of design tooling.", author: "Maya Desai", role: "Design Director, Orbit" },
+const useCases = [
+  { title: "Give that logo a second life.", description: "Only have a PNG? Trace it, tweak the colors, and save an SVG you can keep working with.", audience: "For brand designers", icon: Palette },
+  { title: "Try a little movement.", description: "Start with a shape or some text. Add a few keyframes and play it back. Sometimes that's all an idea needs.", audience: "For UI and motion designers", icon: Layers },
+  { title: "One more change? No problem.", description: "Reopen your saved project, adjust the detail you missed, and export a fresh version. No need to start over.", audience: "For everyday design work", icon: MousePointer2 },
 ];
 
 const pricingFeatures = [
   { label: "Unlimited image + video vectorization" },
   { label: "Animate with your AI via MCP + CLI", comingSoon: true },
-  { label: "Keyframes, spring bounce & text animation" },
-  { label: "Camera motion & character rigging" },
+  { label: "Keyframes, timing & text animation" },
+  { label: "Layers, shapes & color editing" },
   { label: "Editable SVG" },
   { label: "SVG & Lottie exports" },
 ];
@@ -115,7 +109,7 @@ const pricingPlans: Plan[] = [
     cta: "Subscribe for $5/mo",
     popular: false,
     badge: "",
-    description: "For creators who want flexible access.",
+    description: "Pay month to month while you're working on a project.",
   },
   {
     name: "Lifetime",
@@ -125,15 +119,15 @@ const pricingPlans: Plan[] = [
     cta: "Get Lifetime for $29",
     popular: true,
     badge: "Best value",
-    description: "For creators who want Vekto forever.",
+    description: "Pay once and come back whenever you have something to make.",
   },
 ];
 
 const faqs: FAQItem[] = [
-  { question: "Is coding required?", answer: "No. vekto is built for designers, marketers, and product teams. If you can describe motion, you can ship it." },
-  { question: "What formats export?", answer: "Lottie JSON, SVG, CSS, MP4, WebM, GIF, and React components." },
-  { question: "Can I use it commercially?", answer: "Yes. All plans include commercial usage rights. Enterprise includes indemnification." },
-  { question: "Is there a trial?", answer: "Scale plan is free for 14 days, no card required." },
+  { question: "Do I need to know how to code?", answer: "No. You can edit shapes, colors, text, and keyframes right in the browser. Using the exported files in an app or website depends on how you're building it." },
+  { question: "What can I bring into Vekto?", answer: "Convert PNG artwork with the PNG-to-SVG tool. In the editor, you can import SVGs, Lottie JSON, and videos or GIFs up to 10 seconds long. Some imported features may not be supported; the editor flags those for you." },
+  { question: "What can I download?", answer: "An SVG snapshot, an animated SVG, or Lottie JSON. You can also save an editable project file to come back to later." },
+  { question: "Can I animate with my AI tools?", answer: "MCP and CLI access are coming soon. For now, you can create and adjust motion with the editor's keyframes and timeline." },
 ];
 
 /* ───────── Preloader ───────── */
@@ -163,7 +157,7 @@ function Preloader({ onDone }: { onDone: () => void }) {
     >
       <div className="text-center">
         <p className="font-display text-[15vw] font-black leading-none text-slate-900">{count}</p>
-        <p className="mt-2 text-xs font-bold uppercase tracking-[0.3em] text-slate-400">Loading experience</p>
+        <p className="mt-2 text-xs font-bold uppercase tracking-[0.3em] text-slate-400">Getting things ready</p>
       </div>
     </motion.div>
   );
@@ -438,7 +432,7 @@ function Hero() {
         </div>
 
         <p className="hero-sub mx-auto mt-8 max-w-xl text-base font-medium leading-relaxed text-slate-500 md:text-lg">
-          vekto is the AI-native animation platform for product teams who refuse to ship boring software.
+          Turn your artwork into editable vectors, add a little movement, and export it for your next project. All in your browser.
         </p>
 
         <div className="hero-cta mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
@@ -467,7 +461,7 @@ function Hero() {
 
       <div className="absolute bottom-10 right-6 z-10 hidden text-right md:block">
         <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">2026</p>
-        <p className="mt-1 text-sm font-bold text-slate-900">SaaS Motion OS</p>
+        <p className="mt-1 text-sm font-bold text-slate-900">Your browser. Your canvas.</p>
       </div>
     </section>
   );
@@ -503,7 +497,7 @@ function Manifesto() {
   }, []);
 
   const copy =
-    "The best products don't just function. They feel alive. Every scroll, every hover, every loading state is a chance to build trust, spark delight, and move users closer to action. vekto gives your team the power to ship that feeling — at scale.";
+    "You've already got the artwork. You just want to change a color, tidy up a shape, or add a little movement. That shouldn't mean starting from scratch. Bring your files into Vekto, work on the details, and export something you can actually use.";
 
   return (
     <section id="manifesto" ref={sectionRef} className="relative z-10 flex min-h-screen items-center justify-center bg-white px-6">
@@ -625,10 +619,10 @@ function HorizontalScroll() {
       <div ref={trackRef} className="flex h-screen w-max items-center gap-8 px-6 md:px-20">
         <div className="flex h-[70vh] w-[85vw] shrink-0 flex-col justify-end rounded-[3rem] border border-slate-200 bg-slate-50 p-10 md:w-[60vw] md:p-16">
           <h2 className="max-w-xl font-display text-5xl font-black leading-[0.95] text-slate-900 md:text-7xl">
-            The full motion pipeline
+            From file to finished.
           </h2>
           <p className="mt-6 max-w-md text-base font-medium text-slate-500">
-            Scroll to explore the five capabilities that replace your entire motion workflow.
+            Bring in artwork, turn it into vectors, and adjust the details. Add motion when you need it.
           </p>
         </div>
         {horizontalCards.map((card, i) => {
@@ -701,10 +695,10 @@ function FeatureGrid() {
       <div className="mx-auto max-w-7xl">
         <div className="mb-16 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
           <h2 className="max-w-2xl font-display text-5xl font-black leading-[0.95] text-slate-900 md:text-7xl">
-            Built for makers
+            Tools you'll actually use
           </h2>
           <p className="max-w-sm text-base font-medium text-slate-500">
-            Every tool you need to generate, edit, and ship premium animation.
+            A place to work on your artwork, try out motion, and get the file you need.
           </p>
         </div>
 
@@ -734,7 +728,8 @@ function Showcase() {
 
   useEffect(() => {
     const ctx = gsap.context(() => {
-      gsap.from(panelRef.current, {
+      const media = gsap.matchMedia();
+      media.add('(min-width: 1024px)', () => gsap.from(panelRef.current, {
         scale: 0.85,
         borderRadius: "3rem",
         scrollTrigger: {
@@ -744,7 +739,7 @@ function Showcase() {
           scrub: true,
           pin: true,
         },
-      });
+      }));
     }, sectionRef);
     return () => ctx.revert();
   }, []);
@@ -756,9 +751,9 @@ function Showcase() {
         <div className="relative z-10 px-6 text-center">
           <span className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">The Studio</span>
           <h2 className="mx-auto mt-4 max-w-4xl font-display text-5xl font-black leading-[0.95] text-slate-900 md:text-8xl">
-            Make it once.
+            Your work.
             <br />
-            Send it anywhere.
+            Ready to use.
           </h2>
           <div className="mx-auto mt-12 grid max-w-4xl gap-4 rounded-[2rem] border border-slate-200 bg-white/70 p-4 backdrop-blur md:grid-cols-3">
             {exportCards.map((card) => (
@@ -778,19 +773,19 @@ function Showcase() {
   );
 }
 
-/* ───────── Stats ───────── */
-function Stats() {
+/* ───────── Product facts ───────── */
+function ProductFacts() {
   return (
     <section className="relative z-10 border-y border-slate-100 bg-slate-50 py-24">
       <div className="mx-auto max-w-7xl px-6">
         <div className="grid gap-12 text-center md:grid-cols-3">
           {[
-            { value: "10M+", label: "Animations shipped" },
-            { value: "340%", label: "Avg. conversion lift" },
-            { value: "98%", label: "Customer satisfaction" },
+            { value: "SVG", label: "Editable vector exports" },
+            { value: "Lottie", label: "Animation files" },
+            { value: "Web", label: "Work in your browser" },
           ].map((s) => (
             <div key={s.label}>
-              <p className="font-display text-6xl font-black text-slate-900 md:text-7xl">{s.value}</p>
+              <p className="font-display text-6xl font-black text-slate-900 lg:text-7xl">{s.value}</p>
               <p className="mt-2 text-sm font-black uppercase tracking-[0.2em] text-slate-500">{s.label}</p>
             </div>
           ))}
@@ -800,33 +795,29 @@ function Stats() {
   );
 }
 
-/* ───────── Testimonials ───────── */
-function TestimonialCard({ t, i }: { t: typeof testimonials[0]; i: number }) {
+/* ───────── Everyday use cases ───────── */
+function UseCaseCard({ item, i }: { item: typeof useCases[0]; i: number }) {
   return (
     <div className="marquee-card group w-[340px] shrink-0 rounded-[2rem] border border-slate-200 bg-slate-50 p-8 hover:border-indigo-200 hover:bg-white md:w-[420px]">
-      <Quote className="h-10 w-10 text-indigo-200" />
-      <p className="mt-6 text-xl font-bold leading-relaxed text-slate-800">{t.quote}</p>
-      <div className="mt-8 flex gap-1">
-        {Array.from({ length: 5 }).map((_, j) => (
-          <Star key={j} className="h-4 w-4 fill-amber-400 text-amber-400" />
-        ))}
-      </div>
-      <p className="mt-4 font-display text-lg font-black text-slate-900">{t.author}</p>
-      <p className="text-sm font-bold text-slate-500">{t.role}</p>
+      <item.icon className="h-10 w-10 text-indigo-400" />
+      <h3 className="mt-6 font-display text-xl font-black leading-snug text-slate-900">{item.title}</h3>
+      <p className="mt-4 text-base font-medium leading-relaxed text-slate-600">{item.description}</p>
+      <p className="mt-8 text-sm font-bold text-indigo-600">{item.audience}</p>
       <span className="mt-6 block text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">0{i + 1}</span>
     </div>
   );
 }
 
-function Testimonials() {
-  const duplicated = [...testimonials, ...testimonials, ...testimonials];
+function UseCases() {
+  const duplicated = [...useCases, ...useCases, ...useCases];
 
   return (
-    <section className="relative z-10 overflow-hidden bg-white py-32">
+    <section id="use-cases" className="relative z-10 overflow-hidden bg-white py-32">
       <div className="mx-auto max-w-7xl px-6">
         <h2 className="max-w-2xl font-display text-5xl font-black leading-[0.95] text-slate-900 md:text-7xl">
-          Loved by builders
+          For the things you're making.
         </h2>
+        <p className="mt-6 max-w-xl text-base font-medium leading-relaxed text-slate-500">A logo that needs a refresh. An icon that could use some motion. A small change before you send the final file.</p>
       </div>
 
       <div className="marquee-container relative mt-16">
@@ -834,8 +825,8 @@ function Testimonials() {
         <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-16 bg-gradient-to-l from-white to-transparent md:w-32" />
 
         <div className="marquee-track gap-6 pl-6">
-          {duplicated.map((t, i) => (
-            <TestimonialCard key={`${t.author}-${i}`} t={t} i={(i % testimonials.length) + 1} />
+          {duplicated.map((item, i) => (
+            <UseCaseCard key={`${item.title}-${i}`} item={item} i={(i % useCases.length) + 1} />
           ))}
         </div>
       </div>
@@ -903,7 +894,7 @@ function FAQ() {
     <section className="relative z-10 bg-white px-6 py-32">
       <div className="mx-auto max-w-3xl">
         <h2 className="text-center font-display text-5xl font-black leading-[0.95] text-slate-900 md:text-7xl">
-          Common questions
+          A few questions
         </h2>
         <div className="mt-12 space-y-4">
           {faqs.map((faq, i) => (
@@ -936,10 +927,11 @@ function CTA() {
           <div className="absolute -top-40 -right-40 h-80 w-80 rounded-full bg-indigo-600/30 blur-3xl" />
           <div className="absolute -bottom-40 -left-40 h-80 w-80 rounded-full bg-pink-600/20 blur-3xl" />
           <h2 className="relative z-10 mx-auto max-w-4xl font-display text-5xl font-black leading-[0.95] text-white md:text-8xl">
-            Your next idea
+            Got an
             <br />
-            should move.
+            idea?
           </h2>
+          <p className="relative z-10 mx-auto mt-6 max-w-lg text-base font-medium leading-relaxed text-slate-300">Bring a file you already have, or start with an empty canvas. See where it takes you.</p>
           <div className="relative z-10 mt-10 flex flex-col items-center justify-center">
             <GoogleSignInButton className="group flex items-center gap-3 rounded-full bg-white px-8 py-4 text-sm font-black text-slate-900 shadow-xl shadow-slate-900/20 transition-transform hover:scale-105">
               <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
@@ -960,9 +952,9 @@ function CTA() {
 /* ───────── Footer ───────── */
 function Footer() {
   const links = [
-    { label: "Editor", to: "#" },
-    { label: "Developer docs", to: "#" },
-    { label: "Figma plugin", to: "#" },
+    { label: "How it works", to: "#capabilities" },
+    { label: "Exports", to: "#showcase" },
+    { label: "Pricing", to: "#pricing" },
     { label: "Privacy Policy", to: "/privacy" },
     { label: "Terms & Conditions", to: "/terms" },
   ];
@@ -976,11 +968,11 @@ function Footer() {
         </Link>
 
         <p className="text-sm font-medium text-slate-500">
-          Motion design, made direct.
+          Vectors and motion, right in your browser.
         </p>
 
         <nav className="flex flex-wrap items-center justify-center gap-6 md:gap-8">
-          {links.map((link) => (
+          {links.map((link) => link.to.startsWith('#') ? <a key={link.label} href={link.to} className="text-sm font-medium text-slate-500 transition-colors hover:text-slate-900">{link.label}</a> : (
             <Link
               key={link.label}
               to={link.to}
@@ -1312,8 +1304,8 @@ function LandingPage({ loading, setLoading }: { loading: boolean; setLoading: (v
         <HorizontalScroll />
         <FeatureGrid />
         <Showcase />
-        <Stats />
-        <Testimonials />
+        <ProductFacts />
+        <UseCases />
         <Pricing />
         <FAQ />
         <CTA />
