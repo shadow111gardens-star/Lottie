@@ -353,17 +353,17 @@ function Navbar() {
             <Sparkles className="h-5 w-5 text-indigo-600" />
             <span className="font-display">vekto</span>
           </a>
-          <div className="hidden items-center gap-8 md:flex">
+          <div className="hidden items-center gap-8 lg:flex">
             {navLinks.map((l) => (
               <a key={l.label} href={l.href} className="text-sm font-bold uppercase tracking-widest text-slate-500 hover:text-indigo-600 transition-colors">
                 {l.label}
               </a>
             ))}
           </div>
-          <GoogleSignInButton className="hidden rounded-full bg-slate-900 px-5 py-2 text-xs font-black uppercase tracking-widest text-white transition-transform hover:scale-105 md:block">
+          <GoogleSignInButton className="hidden rounded-full bg-slate-900 px-5 py-2 text-xs font-black uppercase tracking-widest text-white transition-transform hover:scale-105 lg:block">
             Get access
           </GoogleSignInButton>
-          <button onClick={() => setMenuOpen(true)} className="md:hidden text-slate-900">
+          <button aria-label="Open navigation" onClick={() => setMenuOpen(true)} className="lg:hidden text-slate-900">
             <Menu className="h-6 w-6" />
           </button>
         </div>
@@ -375,10 +375,10 @@ function Navbar() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[60] bg-white md:hidden"
+            className="fixed inset-0 z-[60] overflow-y-auto bg-white lg:hidden"
           >
-            <div className="flex h-full flex-col items-center justify-center gap-8">
-              <button onClick={() => setMenuOpen(false)} className="absolute top-6 right-6 text-slate-900">
+            <div className="flex min-h-full flex-col items-center justify-center gap-8 py-20">
+              <button aria-label="Close navigation" onClick={() => setMenuOpen(false)} className="absolute top-6 right-6 text-slate-900">
                 <X className="h-8 w-8" />
               </button>
               {navLinks.map((l) => (
@@ -386,6 +386,7 @@ function Navbar() {
                   {l.label}
                 </a>
               ))}
+              <GoogleSignInButton className="rounded-full bg-slate-900 px-6 py-3 text-white">Get access</GoogleSignInButton>
             </div>
           </motion.div>
         )}
@@ -596,20 +597,20 @@ function HorizontalScroll() {
     const ctx = gsap.context(() => {
       if (!trackRef.current || !sectionRef.current) return;
       const track = trackRef.current;
-      const scrollWidth = track.scrollWidth - window.innerWidth;
-
-      gsap.to(track, {
-        x: -scrollWidth,
+      const media = gsap.matchMedia();
+      media.add('(min-width: 1024px)', () => gsap.to(track, {
+        x: () => -(track.scrollWidth - window.innerWidth),
         ease: "none",
         scrollTrigger: {
           trigger: sectionRef.current,
           start: "top top",
-          end: () => `+=${scrollWidth}`,
+          end: () => `+=${track.scrollWidth - window.innerWidth}`,
+          invalidateOnRefresh: true,
           scrub: 1,
           pin: true,
           anticipatePin: 1,
         },
-      });
+      }));
     }, sectionRef);
     return () => ctx.revert();
   }, []);

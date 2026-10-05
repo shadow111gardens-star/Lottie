@@ -124,7 +124,18 @@ export default function Canvas(p: Props) {
       p.setZoom(fitZoom(r.width, r.height, p.scene.width, p.scene.height));
     }
   };
-  useEffect(fit, [p.scene.width, p.scene.height]);
+  useEffect(() => {
+    fit();
+    const element = stage.current;
+    if (!element) return;
+    if (!window.ResizeObserver) {
+      window.addEventListener('resize', fit);
+      return () => window.removeEventListener('resize', fit);
+    }
+    const observer = new window.ResizeObserver(fit);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [p.scene.width, p.scene.height]);
   useEffect(() => {
     const element = stage.current;
     const prevent = (event: Event) => event.preventDefault();

@@ -1,0 +1,847 @@
+[
+  {
+    "size": "320x740",
+    "route": "/",
+    "width": 320,
+    "scrollWidth": 320,
+    "overflow": []
+  },
+  {
+    "size": "320x740",
+    "route": "Mobile navigation",
+    "width": 320,
+    "scrollWidth": 320,
+    "overflow": []
+  },
+  {
+    "size": "320x740",
+    "route": "/privacy",
+    "width": 320,
+    "scrollWidth": 320,
+    "overflow": []
+  },
+  {
+    "size": "320x740",
+    "route": "/terms",
+    "width": 320,
+    "scrollWidth": 320,
+    "overflow": []
+  },
+  {
+    "size": "320x740",
+    "route": "/dashboard",
+    "width": 320,
+    "scrollWidth": 320,
+    "overflow": []
+  },
+  {
+    "size": "320x740",
+    "route": "Project list",
+    "width": 320,
+    "scrollWidth": 320,
+    "overflow": []
+  },
+  {
+    "size": "320x740",
+    "route": "Project filters",
+    "width": 320,
+    "scrollWidth": 320,
+    "overflow": []
+  },
+  {
+    "size": "320x740",
+    "route": "PNG.*SVG",
+    "width": 320,
+    "scrollWidth": 320,
+    "overflow": []
+  },
+  {
+    "size": "320x740",
+    "route": "My assets",
+    "width": 320,
+    "scrollWidth": 320,
+    "overflow": []
+  },
+  {
+    "size": "320x740",
+    "route": "/editor/responsive-test",
+    "width": 320,
+    "scrollWidth": 320,
+    "canvas": {
+      "x": 12,
+      "y": 143.5,
+      "width": 296,
+      "height": 333,
+      "top": 143.5,
+      "right": 308,
+      "bottom": 476.5,
+      "left": 12
+    },
+    "overflow": []
+  },
+  {
+    "size": "320x740",
+    "route": "Editor properties",
+    "width": 320,
+    "scrollWidth": 320,
+    "canvas": {
+      "x": 12,
+      "y": -878.5,
+      "width": 296,
+      "height": 333,
+      "top": -878.5,
+      "right": 308,
+      "bottom": -545.5,
+      "left": 12
+    },
+    "overflow": []
+  },
+  {
+    "size": "320x740",
+    "route": "Editor timeline",
+    "width": 320,
+    "scrollWidth": 320,
+    "canvas": {
+      "x": 12,
+      "y": -878.5,
+      "width": 296,
+      "height": 333,
+      "top": -878.5,
+      "right": 308,
+      "bottom": -545.5,
+      "left": 12
+    },
+    "overflow": []
+  },
+  {
+    "size": "390x844",
+    "route": "/",
+    "width": 390,
+    "scrollWidth": 390,
+    "overflow": []
+  },
+  {
+    "size": "390x844",
+    "route": "Mobile navigation",
+    "width": 390,
+    "scrollWidth": 390,
+    "overflow": []
+  },
+  {
+    "size": "390x844",
+    "route": "/privacy",
+    "width": 390,
+    "scrollWidth": 390,
+    "overflow": []
+  },
+  {
+    "size": "390x844",
+    "route": "/terms",
+    "width": 390,
+    "scrollWidth": 390,
+    "overflow": []
+  },
+  {
+    "size": "390x844",
+    "route": "/dashboard",
+    "width": 390,
+    "scrollWidth": 390,
+    "overflow": []
+  },
+  {
+    "size": "390x844",
+    "route": "Project list",
+    "width": 390,
+    "scrollWidth": 390,
+    "overflow": []
+  },
+  {
+    "size": "390x844",
+    "route": "Project filters",
+    "width": 390,
+    "scrollWidth": 390,
+    "overflow": []
+  },
+  {
+    "size": "390x844",
+    "route": "PNG.*SVG",
+    "width": 390,
+    "scrollWidth": 390,
+    "overflow": []
+  },
+  {
+    "size": "390x844",
+    "route": "My assets",
+    "width": 390,
+    "scrollWidth": 390,
+    "overflow": []
+  },
+  {
+    "size": "390x844",
+    "route": "/editor/responsive-test",
+    "width": 390,
+    "scrollWidth": 390,
+    "canvas": {
+      "x": 12,
+      "y": 143.5,
+      "width": 366,
+      "height": 379.796875,
+      "top": 143.5,
+      "right": 378,
+      "bottom": 523.296875,
+      "left": 12
+    },
+    "overflow": []
+  },
+  {
+    "size": "390x844",
+    "route": "Editor properties",
+    "width": 390,
+    "scrollWidth": 390,
+    "canvas": {
+      "x": 12,
+      "y": -853.5,
+      "width": 366,
+      "height": 379.796875,
+      "top": -853.5,
+      "right": 378,
+      "bottom": -473.703125,
+      "left": 12
+    },
+    "overflow": []
+  },
+  {
+    "size": "390x844",
+    "route": "Editor timeline",
+    "width": 390,
+    "scrollWidth": 390,
+    "canvas": {
+      "x": 12,
+      "y": -853.5,
+      "width": 366,
+      "height": 379.796875,
+      "top": -853.5,
+      "right": 378,
+      "bottom": -473.703125,
+      "left": 12
+    },
+    "overflow": []
+  },
+  {
+    "size": "768x1024",
+    "route": "/",
+    "width": 768,
+    "scrollWidth": 768,
+    "overflow": []
+  },
+  {
+    "size": "768x1024",
+    "route": "Mobile navigation",
+    "width": 768,
+    "scrollWidth": 768,
+    "overflow": []
+  },
+  {
+    "size": "768x1024",
+    "route": "/privacy",
+    "width": 768,
+    "scrollWidth": 768,
+    "overflow": []
+  },
+  {
+    "size": "768x1024",
+    "route": "/terms",
+    "width": 768,
+    "scrollWidth": 768,
+    "overflow": []
+  },
+  {
+    "size": "768x1024",
+    "route": "/dashboard",
+    "width": 768,
+    "scrollWidth": 768,
+    "overflow": []
+  },
+  {
+    "size": "768x1024",
+    "route": "Project list",
+    "width": 768,
+    "scrollWidth": 768,
+    "overflow": []
+  },
+  {
+    "size": "768x1024",
+    "route": "Project filters",
+    "width": 768,
+    "scrollWidth": 768,
+    "overflow": []
+  },
+  {
+    "size": "768x1024",
+    "route": "PNG.*SVG",
+    "width": 768,
+    "scrollWidth": 768,
+    "overflow": []
+  },
+  {
+    "size": "768x1024",
+    "route": "My assets",
+    "width": 768,
+    "scrollWidth": 768,
+    "overflow": []
+  },
+  {
+    "size": "768x1024",
+    "route": "/editor/responsive-test",
+    "width": 768,
+    "scrollWidth": 768,
+    "canvas": {
+      "x": 12,
+      "y": 102.5,
+      "width": 744,
+      "height": 460.796875,
+      "top": 102.5,
+      "right": 756,
+      "bottom": 563.296875,
+      "left": 12
+    },
+    "overflow": []
+  },
+  {
+    "size": "768x1024",
+    "route": "Editor properties",
+    "width": 768,
+    "scrollWidth": 768,
+    "canvas": {
+      "x": 12,
+      "y": 90.5,
+      "width": 744,
+      "height": 460.796875,
+      "top": 90.5,
+      "right": 756,
+      "bottom": 551.296875,
+      "left": 12
+    },
+    "overflow": []
+  },
+  {
+    "size": "768x1024",
+    "route": "Editor timeline",
+    "width": 768,
+    "scrollWidth": 768,
+    "canvas": {
+      "x": 12,
+      "y": -240.5,
+      "width": 744,
+      "height": 460.796875,
+      "top": -240.5,
+      "right": 756,
+      "bottom": 220.296875,
+      "left": 12
+    },
+    "overflow": []
+  },
+  {
+    "size": "1024x768",
+    "route": "/",
+    "width": 1024,
+    "scrollWidth": 1024,
+    "overflow": [
+      {
+        "tag": "H3",
+        "class": "mt-2 font-display text-4xl font-black text-slate-900",
+        "text": "Generate"
+      },
+      {
+        "tag": "H3",
+        "class": "mt-2 font-display text-4xl font-black text-slate-900",
+        "text": "Sync"
+      },
+      {
+        "tag": "H3",
+        "class": "mt-2 font-display text-4xl font-black text-slate-900",
+        "text": "Edit"
+      },
+      {
+        "tag": "H3",
+        "class": "mt-2 font-display text-4xl font-black text-slate-900",
+        "text": "Ship"
+      },
+      {
+        "tag": "H3",
+        "class": "mt-2 font-display text-4xl font-black text-slate-900",
+        "text": "Analyze"
+      }
+    ]
+  },
+  {
+    "size": "1024x768",
+    "route": "/privacy",
+    "width": 1024,
+    "scrollWidth": 1024,
+    "overflow": []
+  },
+  {
+    "size": "1024x768",
+    "route": "/terms",
+    "width": 1024,
+    "scrollWidth": 1024,
+    "overflow": []
+  },
+  {
+    "size": "1024x768",
+    "route": "/dashboard",
+    "width": 1024,
+    "scrollWidth": 1024,
+    "overflow": []
+  },
+  {
+    "size": "1024x768",
+    "route": "Project list",
+    "width": 1024,
+    "scrollWidth": 1024,
+    "overflow": []
+  },
+  {
+    "size": "1024x768",
+    "route": "Project filters",
+    "width": 1024,
+    "scrollWidth": 1024,
+    "overflow": []
+  },
+  {
+    "size": "1024x768",
+    "route": "PNG.*SVG",
+    "width": 1024,
+    "scrollWidth": 1024,
+    "overflow": []
+  },
+  {
+    "size": "1024x768",
+    "route": "My assets",
+    "width": 1024,
+    "scrollWidth": 1024,
+    "overflow": []
+  },
+  {
+    "size": "1024x768",
+    "route": "/editor/responsive-test",
+    "width": 1024,
+    "scrollWidth": 1024,
+    "canvas": {
+      "x": 227,
+      "y": 66,
+      "width": 540,
+      "height": 388,
+      "top": 66,
+      "right": 767,
+      "bottom": 454,
+      "left": 227
+    },
+    "overflow": []
+  },
+  {
+    "size": "1024x768",
+    "route": "Editor properties",
+    "width": 1024,
+    "scrollWidth": 1024,
+    "canvas": {
+      "x": 227,
+      "y": 66,
+      "width": 540,
+      "height": 388,
+      "top": 66,
+      "right": 767,
+      "bottom": 454,
+      "left": 227
+    },
+    "overflow": []
+  },
+  {
+    "size": "1024x768",
+    "route": "Editor timeline",
+    "width": 1024,
+    "scrollWidth": 1024,
+    "canvas": {
+      "x": 227,
+      "y": 66,
+      "width": 540,
+      "height": 388,
+      "top": 66,
+      "right": 767,
+      "bottom": 454,
+      "left": 227
+    },
+    "overflow": []
+  },
+  {
+    "size": "1440x900",
+    "route": "/",
+    "width": 1440,
+    "scrollWidth": 1440,
+    "overflow": [
+      {
+        "tag": "H3",
+        "class": "mt-2 font-display text-4xl font-black text-slate-900",
+        "text": "Sync"
+      },
+      {
+        "tag": "H3",
+        "class": "mt-2 font-display text-4xl font-black text-slate-900",
+        "text": "Edit"
+      },
+      {
+        "tag": "H3",
+        "class": "mt-2 font-display text-4xl font-black text-slate-900",
+        "text": "Ship"
+      },
+      {
+        "tag": "H3",
+        "class": "mt-2 font-display text-4xl font-black text-slate-900",
+        "text": "Analyze"
+      }
+    ]
+  },
+  {
+    "size": "1440x900",
+    "route": "/privacy",
+    "width": 1440,
+    "scrollWidth": 1440,
+    "overflow": []
+  },
+  {
+    "size": "1440x900",
+    "route": "/terms",
+    "width": 1440,
+    "scrollWidth": 1440,
+    "overflow": []
+  },
+  {
+    "size": "1440x900",
+    "route": "/dashboard",
+    "width": 1440,
+    "scrollWidth": 1440,
+    "overflow": []
+  },
+  {
+    "size": "1440x900",
+    "route": "Project list",
+    "width": 1440,
+    "scrollWidth": 1440,
+    "overflow": []
+  },
+  {
+    "size": "1440x900",
+    "route": "Project filters",
+    "width": 1440,
+    "scrollWidth": 1440,
+    "overflow": []
+  },
+  {
+    "size": "1440x900",
+    "route": "PNG.*SVG",
+    "width": 1440,
+    "scrollWidth": 1440,
+    "overflow": []
+  },
+  {
+    "size": "1440x900",
+    "route": "My assets",
+    "width": 1440,
+    "scrollWidth": 1440,
+    "overflow": []
+  },
+  {
+    "size": "1440x900",
+    "route": "/editor/responsive-test",
+    "width": 1440,
+    "scrollWidth": 1440,
+    "canvas": {
+      "x": 290,
+      "y": 78,
+      "width": 844,
+      "height": 488,
+      "top": 78,
+      "right": 1134,
+      "bottom": 566,
+      "left": 290
+    },
+    "overflow": []
+  },
+  {
+    "size": "1440x900",
+    "route": "Editor properties",
+    "width": 1440,
+    "scrollWidth": 1440,
+    "canvas": {
+      "x": 290,
+      "y": 78,
+      "width": 844,
+      "height": 488,
+      "top": 78,
+      "right": 1134,
+      "bottom": 566,
+      "left": 290
+    },
+    "overflow": []
+  },
+  {
+    "size": "1440x900",
+    "route": "Editor timeline",
+    "width": 1440,
+    "scrollWidth": 1440,
+    "canvas": {
+      "x": 290,
+      "y": 78,
+      "width": 844,
+      "height": 488,
+      "top": 78,
+      "right": 1134,
+      "bottom": 566,
+      "left": 290
+    },
+    "overflow": []
+  },
+  {
+    "size": "1920x1080",
+    "route": "/",
+    "width": 1920,
+    "scrollWidth": 1920,
+    "overflow": [
+      {
+        "tag": "H3",
+        "class": "mt-2 font-display text-4xl font-black text-slate-900",
+        "text": "Sync"
+      },
+      {
+        "tag": "H3",
+        "class": "mt-2 font-display text-4xl font-black text-slate-900",
+        "text": "Edit"
+      },
+      {
+        "tag": "H3",
+        "class": "mt-2 font-display text-4xl font-black text-slate-900",
+        "text": "Ship"
+      },
+      {
+        "tag": "H3",
+        "class": "mt-2 font-display text-4xl font-black text-slate-900",
+        "text": "Analyze"
+      }
+    ]
+  },
+  {
+    "size": "1920x1080",
+    "route": "/privacy",
+    "width": 1920,
+    "scrollWidth": 1920,
+    "overflow": []
+  },
+  {
+    "size": "1920x1080",
+    "route": "/terms",
+    "width": 1920,
+    "scrollWidth": 1920,
+    "overflow": []
+  },
+  {
+    "size": "1920x1080",
+    "route": "/dashboard",
+    "width": 1920,
+    "scrollWidth": 1920,
+    "overflow": []
+  },
+  {
+    "size": "1920x1080",
+    "route": "Project list",
+    "width": 1920,
+    "scrollWidth": 1920,
+    "overflow": []
+  },
+  {
+    "size": "1920x1080",
+    "route": "Project filters",
+    "width": 1920,
+    "scrollWidth": 1920,
+    "overflow": []
+  },
+  {
+    "size": "1920x1080",
+    "route": "PNG.*SVG",
+    "width": 1920,
+    "scrollWidth": 1920,
+    "overflow": []
+  },
+  {
+    "size": "1920x1080",
+    "route": "My assets",
+    "width": 1920,
+    "scrollWidth": 1920,
+    "overflow": []
+  },
+  {
+    "size": "1920x1080",
+    "route": "/editor/responsive-test",
+    "width": 1920,
+    "scrollWidth": 1920,
+    "canvas": {
+      "x": 290,
+      "y": 78,
+      "width": 1324,
+      "height": 606.8125,
+      "top": 78,
+      "right": 1614,
+      "bottom": 684.8125,
+      "left": 290
+    },
+    "overflow": []
+  },
+  {
+    "size": "1920x1080",
+    "route": "Editor properties",
+    "width": 1920,
+    "scrollWidth": 1920,
+    "canvas": {
+      "x": 290,
+      "y": 78,
+      "width": 1324,
+      "height": 606.8125,
+      "top": 78,
+      "right": 1614,
+      "bottom": 684.8125,
+      "left": 290
+    },
+    "overflow": []
+  },
+  {
+    "size": "1920x1080",
+    "route": "Editor timeline",
+    "width": 1920,
+    "scrollWidth": 1920,
+    "canvas": {
+      "x": 290,
+      "y": 78,
+      "width": 1324,
+      "height": 606.8125,
+      "top": 78,
+      "right": 1614,
+      "bottom": 684.8125,
+      "left": 290
+    },
+    "overflow": []
+  },
+  {
+    "size": "844x390",
+    "route": "/",
+    "width": 844,
+    "scrollWidth": 844,
+    "overflow": []
+  },
+  {
+    "size": "844x390",
+    "route": "Mobile navigation",
+    "width": 844,
+    "scrollWidth": 844,
+    "overflow": []
+  },
+  {
+    "size": "844x390",
+    "route": "/privacy",
+    "width": 844,
+    "scrollWidth": 844,
+    "overflow": []
+  },
+  {
+    "size": "844x390",
+    "route": "/terms",
+    "width": 844,
+    "scrollWidth": 844,
+    "overflow": []
+  },
+  {
+    "size": "844x390",
+    "route": "/dashboard",
+    "width": 844,
+    "scrollWidth": 844,
+    "overflow": []
+  },
+  {
+    "size": "844x390",
+    "route": "Project list",
+    "width": 844,
+    "scrollWidth": 844,
+    "overflow": []
+  },
+  {
+    "size": "844x390",
+    "route": "Project filters",
+    "width": 844,
+    "scrollWidth": 844,
+    "overflow": []
+  },
+  {
+    "size": "844x390",
+    "route": "PNG.*SVG",
+    "width": 844,
+    "scrollWidth": 844,
+    "overflow": []
+  },
+  {
+    "size": "844x390",
+    "route": "My assets",
+    "width": 844,
+    "scrollWidth": 844,
+    "overflow": []
+  },
+  {
+    "size": "844x390",
+    "route": "/editor/responsive-test",
+    "width": 844,
+    "scrollWidth": 844,
+    "canvas": {
+      "x": 12,
+      "y": 115.5,
+      "width": 820,
+      "height": 280,
+      "top": 115.5,
+      "right": 832,
+      "bottom": 395.5,
+      "left": 12
+    },
+    "overflow": []
+  },
+  {
+    "size": "844x390",
+    "route": "Editor properties",
+    "width": 844,
+    "scrollWidth": 844,
+    "canvas": {
+      "x": 12,
+      "y": -450.5,
+      "width": 820,
+      "height": 280,
+      "top": -450.5,
+      "right": 832,
+      "bottom": -170.5,
+      "left": 12
+    },
+    "overflow": []
+  },
+  {
+    "size": "844x390",
+    "route": "Editor timeline",
+    "width": 844,
+    "scrollWidth": 844,
+    "canvas": {
+      "x": 12,
+      "y": -450.5,
+      "width": 820,
+      "height": 280,
+      "top": -450.5,
+      "right": 832,
+      "bottom": -170.5,
+      "left": 12
+    },
+    "overflow": []
+  }
+]
