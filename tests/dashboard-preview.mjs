@@ -10,10 +10,11 @@ win.HTMLCanvasElement.prototype.getContext=()=>({fillRect(){},getImageData(){ret
 const file=new URL('./.dashboard-preview.mjs',import.meta.url);
 const bundle=await build({stdin:{contents:'export {default as Dashboard} from "./src/Dashboard"; export {importLottie} from "./src/editor/lottie"; export {initialScene} from "./src/editor/model";',resolveDir:process.cwd()},bundle:true,platform:'node',format:'esm',packages:'external',loader:{'.css':'empty'},write:false,plugins:[{
  name:'cloud-dashboard-boundary',setup(build){
+  build.onResolve({filter:/^\.\/storage$/},()=>({path:'storage',namespace:'dashboard-test'}));
   build.onResolve({filter:/projects\/store$/},()=>({path:'store',namespace:'dashboard-test'}));
   build.onResolve({filter:/lib\/firebase$/},()=>({path:'firebase',namespace:'dashboard-test'}));
   build.onResolve({filter:/^firebase\/auth$/},()=>({path:'auth',namespace:'dashboard-test'}));
-  build.onLoad({filter:/.*/,namespace:'dashboard-test'},args=>({contents:args.path==='firebase'?'export const auth={currentUser:{uid:"preview-user"}};export function getFirebaseAuth(){return auth;}':args.path==='auth'?'export function onAuthStateChanged(auth, callback){queueMicrotask(()=>callback({uid:"preview-user"}));return ()=>{};}export async function signOut(){}':`export const PROJECTS_CHANGED='kinetic-projects-changed';export function cachedProjects(){return {projects:globalThis.previewProjects,invalid:0};}export async function readProjects(){return {projects:globalThis.previewProjects,invalid:0};}export function sortProjects(projects){return projects;}export function editedLabel(){return 'Edited just now';}export function createBlankProject(){globalThis.blankCreates=(globalThis.blankCreates||0)+1;return {id:"instant-blank"};}export async function createProject(){}export async function deleteProject(id){return globalThis.testDelete?.(id);}export async function duplicateProject(id){return globalThis.testDuplicate?.(id);}export async function openProject(){}export async function renameProject(id,name){return globalThis.testRename?.(id,name);}export async function restoreProject(){}`}));
+  build.onLoad({filter:/.*/,namespace:'dashboard-test'},args=>({contents:args.path==='storage'?'export async function currentOwner(){return {uid:globalThis.assetOwner||"preview-user"};}export function assertOwner(user){if(user.uid!==(globalThis.assetOwner||"preview-user"))throw new Error("Account changed");}export async function assetBlob(){return new Blob(["asset"]);}export async function dataUrl(){}':args.path==='firebase'?'export const auth={currentUser:{uid:"preview-user"}};export function getFirebaseAuth(){return auth;}':args.path==='auth'?'export function onAuthStateChanged(auth, callback){queueMicrotask(()=>callback({uid:"preview-user"}));return ()=>{};}export async function signOut(){}':`export const PROJECTS_CHANGED='kinetic-projects-changed';export function cachedProjects(){return {projects:globalThis.previewProjects,invalid:0};}export async function readProjects(){return {projects:globalThis.previewProjects,invalid:0};}export function sortProjects(projects){return projects;}export function editedLabel(){return 'Edited just now';}export function createBlankProject(){globalThis.blankCreates=(globalThis.blankCreates||0)+1;return {id:"instant-blank"};}export async function loadProject(id){return globalThis.previewProjects.find(project=>project.id===id).scene;}export async function createProject(){}export async function deleteProject(id){return globalThis.testDelete?.(id);}export async function duplicateProject(id){return globalThis.testDuplicate?.(id);}export async function openProject(){}export async function renameProject(id,name){return globalThis.testRename?.(id,name);}export async function restoreProject(){}`}));
  }
 }]});
 await writeFile(file,bundle.outputFiles[0].text);
@@ -36,6 +37,20 @@ try {
  const click=async button=>React.act(async()=>button.click());
  await click([...host.querySelectorAll('nav button')].find(button=>button.textContent.includes('All projects')));
  assert.ok(host.querySelector('.pd-all-projects'));
+ assert.equal(host.querySelectorAll('nav button').length,3);
+ assert.ok(![...host.querySelectorAll('nav button')].some(button=>button.textContent.includes('Recents')));
+ assert.equal(host.querySelector('.pd-upgrade a').getAttribute('href'),'/#pricing');
+ assert.equal(host.querySelector('.pd-sidebar-bottom').lastElementChild.className,'pd-logout');
+ await click([...host.querySelectorAll('nav button')].find(button=>button.textContent.includes('My assets')));
+ assert.equal(host.querySelector('h1').textContent,'My assets');
+ assert.ok(host.querySelector('[aria-label="Download Native preview.svg"]'));
+ const originalCreate=URL.createObjectURL,originalRevoke=URL.revokeObjectURL;let assetDownload;
+ URL.createObjectURL=blob=>{assetDownload=blob;return 'blob:asset-download';};URL.revokeObjectURL=()=>{};
+ await click(host.querySelector('[aria-label="Download Native preview.svg"]'));
+ assert.match(await assetDownload.text(),/<svg/);
+ URL.createObjectURL=originalCreate;URL.revokeObjectURL=originalRevoke;
+ await click([...host.querySelectorAll('nav button')].find(button=>button.textContent.includes('All projects')));
+ console.log('PASS Sidebar has requested navigation, real user asset view, upgrade link and final logout button');
  const search=host.querySelector('[aria-label="Search projects"]');
  await React.act(async()=>{Object.getOwnPropertyDescriptor(win.HTMLInputElement.prototype,'value').set.call(search,'Native');search.dispatchEvent(new win.Event('input',{bubbles:true}));});
  assert.equal(host.querySelectorAll('.pd-card').length,1);assert.ok(host.querySelector('[data-project-id="native"]'));

@@ -1,0 +1,22 @@
+.pd-sidebar{overflow-y:auto}
+.pd-sidebar nav button{color:#252b40;font-weight:500}
+.pd-sidebar nav button.is-selected{background:linear-gradient(100deg,#f1ebff,#f5f1ff);color:#6f38ff;font-weight:650}
+.pd-sidebar nav button span{background:#f1f2fa;border-radius:5px;padding:3px 6px;color:#626a85;min-width:24px}
+.pd-sidebar nav button.is-selected span,.pd-sidebar nav button .pd-nav-new{background:#eae2ff;color:#743bff}
+.pd-library-label{border-top:1px solid #f0f1f7;margin-top:22px;padding-top:22px}
+.pd-sidebar-bottom{margin-top:auto;padding-top:36px;display:flex;flex-direction:column;gap:14px}
+.pd-upgrade{background:linear-gradient(125deg,#f1ecff,#f5f1ff);border:1px solid #f0eaff;border-radius:13px;padding:18px 16px}
+.pd-upgrade h2{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:650;margin:0 0 8px;color:#21253a}
+.pd-upgrade h2 svg{color:#7a43ff;fill:#7a43ff}
+.pd-upgrade p{font-size:11px;line-height:1.7;color:#8790aa;margin:0 0 14px}
+.pd-upgrade a{display:flex;align-items:center;justify-content:center;gap:8px;min-height:38px;padding:9px;border-radius:8px;background:linear-gradient(120deg,#182037,#0d1325);color:#fff;text-decoration:none;font-size:12px;font-weight:500;box-shadow:0 4px 10px #171c3220}
+.pd-upgrade a:hover{background:#30384e}
+.pd-sidebar-bottom .pd-logout{margin:0;width:100%;min-height:42px;font-size:13px;flex-shrink:0}
+.ma-toolbar{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:28px 0 20px;font-size:12px;color:#8790aa}
+.ma-toolbar .pd-search{width:min(380px,75%)}
+.ma-card>.pd-preview{width:100%;border:0;color:#9384bb}
+.ma-card strong{display:block;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ma-card p{font-size:11px;color:#8a96b6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin:7px 0 12px}
+.ma-actions{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.ma-actions .pd-button{height:32px;font-size:11px!important}
+@media(max-width:650px){.pd-sidebar nav{flex-wrap:wrap}.pd-sidebar nav button{flex:1;min-width:120px}.pd-library-label{display:block;margin-top:12px;padding:12px 8px 6px}.pd-sidebar-bottom{padding-top:18px;display:grid;grid-template-columns:1fr auto;align-items:end;gap:12px}.pd-upgrade{padding:12px}.pd-upgrade p{margin-bottom:8px}.pd-sidebar-bottom .pd-logout{width:auto;padding:10px 14px}.ma-toolbar{flex-wrap:wrap}.ma-actions .pd-button{flex:none}}

@@ -13,7 +13,7 @@ const bundle = await build({ stdin: { contents: 'export { default as Dashboard }
     build.onResolve({ filter: /^firebase\/auth$/ }, () => ({ path: 'auth', namespace: 'actions-test' }));
     build.onLoad({ filter: /.*/, namespace: 'actions-test' }, args => ({ contents: args.path === 'firebase'
       ? 'export const auth={currentUser:{uid:"action-owner"}}; export function getFirebaseAuth(){return auth;}'
-      : args.path === 'auth' ? 'export function onAuthStateChanged(auth,callback){queueMicrotask(()=>callback(auth.currentUser)); return ()=>{};} export async function signOut(){}'
+      : args.path === 'auth' ? 'export function onAuthStateChanged(auth,callback){queueMicrotask(()=>callback(auth.currentUser)); return ()=>{};} export async function signOut(){globalThis.actionSignOuts=(globalThis.actionSignOuts||0)+1;}'
         : `export const PROJECTS_CHANGED='kinetic-projects-changed'; export function cachedProjects(){return {projects:[],invalid:0};}
 export function createBlankProject(){globalThis.actionCreates++; return globalThis.actionProject;}
 export function localProject(id){return globalThis.actionProject?.id===id?globalThis.actionProject:null;}
@@ -37,7 +37,7 @@ try {
   globalThis.actionProject = { id: 'new-instant-action', owner: 'action-owner', scene: { ...api.initialScene(), layers: [] } };
   const host = document.createElement('div'); document.body.append(host); root = createRoot(host);
   await React.act(async () => root.render(React.createElement(MemoryRouter, { initialEntries: ['/dashboard'] }, React.createElement(Routes, null,
-    React.createElement(Route, { path: '/dashboard', element: React.createElement(api.Dashboard) }),
+    React.createElement(Route, { path: '/', element: React.createElement('div',{id:'signed-out'},'Signed out') }),React.createElement(Route, { path: '/dashboard', element: React.createElement(api.Dashboard) }),
     React.createElement(Route, { path: '/editor/:projectId', element: React.createElement(api.Editor) })))));
   globalThis.actionShowExisting=true;
   await React.act(async()=>{window.dispatchEvent(new win.Event('kinetic-projects-changed'));await new Promise(resolve=>setTimeout(resolve,10));});
@@ -60,6 +60,9 @@ try {
   await React.act(async () => new Promise(resolve => setTimeout(resolve, 1300)));
   assert.equal(globalThis.actionSaves, 0, 'Deleting the open workspace cancels its pending autosave');
   console.log('PASS Actual New Project navigation, blank canvas without loader/network, rapid-click guard and open-project deletion navigation');
+  await React.act(async()=>host.querySelector('.pd-logout').click());
+  assert.equal(globalThis.actionSignOuts,1);assert.ok(host.querySelector('#signed-out'));
+  console.log('PASS Logout signs out Firebase and returns to home');
 } finally {
   if (root) await React.act(async () => root.unmount());
   await unlink(output); await win.happyDOM.abort();

@@ -12,7 +12,8 @@ import { assertProjectActive, projectStopped, stopProject, resumeProject } from 
 export { sortProjects, editedLabel } from './project-order';
 export type Sort = 'activity' | 'edited' | 'created' | 'name-asc' | 'name-desc';
 export const PROJECTS_CHANGED = 'kinetic-projects-changed';
-export type Project = { id: string; scene: Scene; type: 'Animation' | 'SVG'; category?: ProjectCategory; createdAt: number | null; editedAt: number | null; openedAt: number | null; preview?: string; hasContent?: boolean; status?: string };
+export type ProjectAsset = { name: string; key?: string; kind: 'Image' | 'Video' | 'SVG' | 'Lottie' | 'File' };
+export type Project = { assets?: ProjectAsset[]; id: string; scene: Scene; type: 'Animation' | 'SVG'; category?: ProjectCategory; createdAt: number | null; editedAt: number | null; openedAt: number | null; preview?: string; hasContent?: boolean; status?: string };
 type Reference = { $r2: string; format: 'text' | 'dataUrl' };
 const loaded = new Map<string, { scene: Scene; revision: string | null }>();
 const queues = new Map<string, Promise<void>>();
@@ -126,6 +127,14 @@ export async function readProjects(onPreview?: (project: Project) => void): Prom
     const scene = { ...initialScene(data.name), ...data.settings, name: data.name, layers: [] } as Scene;
     const old = previous?.projects.find(project => project.id === item.id);
     const project: Project = { id: item.id, scene, type: data.type, category: data.category ?? (data.r2?.lottie ? 'Lottie' : data.type === 'Animation' ? 'Lottie' : 'SVG'), hasContent: data.layerCount > 0, preview: data.r2?.thumbnail ? old?.preview : undefined, status: data.status, createdAt: timestamp(data.createdAt), editedAt: timestamp(data.updatedAt), openedAt: timestamp(data.openedAt) };
+    const sourceKeys: string[] = Array.isArray(data.r2?.source) ? data.r2.source : [];
+    project.assets = sourceKeys.filter(key => typeof key === 'string').map(key => {
+      const name = key.split('/').pop() || 'Source file';
+      const kind: ProjectAsset['kind'] = /\.(png|jpe?g|webp|gif)$/i.test(name) ? 'Image' : /\.(mp4|webm|mov)$/i.test(name) ? 'Video' : /\.svg$/i.test(name) ? 'SVG' : 'File';
+      return { name, key, kind };
+    });
+    if (typeof data.r2?.lottie === 'string') project.assets.push({ name: `${data.name}.json`, key: data.r2.lottie, kind: 'Lottie' });
+    if (typeof data.r2?.svg === 'string') project.assets.push({ name: `${data.name}.svg`, key: data.r2.svg, kind: 'SVG' });
     projects.push(project);
     if (data.r2?.thumbnail) thumbnails.push({ project, key: data.r2.thumbnail });
   }
@@ -264,7 +273,7 @@ export async function saveProject(id: string, source: Scene, ownerId?: string): 
       transaction.update(reference(user, id), { name: source.name, type: typeOf(source), category: sceneCategory(source), updatedAt: serverTimestamp(), duration: source.duration,
         frameCount: source.layers.reduce((count, layer) => count + (layer.media?.frames.length || 0), 0), layerCount: source.layers.filter(layer => !layer.sourceFrame).length,
         settings: { width: source.width, height: source.height, background: source.background, clip: source.clip, duration: source.duration }, editorState: empty ? { inline: JSON.parse(JSON.stringify(source)), revision } : { key: state, revision },
-        r2: { project: state, thumbnail, source: manifest.filter(key => key.includes('/source/')), lottie: manifest.find(key => key.includes('/lottie/')) ?? null } });
+        r2: { project: state, thumbnail, svg: manifest.find(key => key.endsWith('/export.svg')) ?? null, source: manifest.filter(key => key.includes('/source/')), lottie: manifest.find(key => key.includes('/lottie/')) ?? null } });
     });
     assertProjectActive(user.uid, id);
     loaded.set(key, { scene: source, revision });

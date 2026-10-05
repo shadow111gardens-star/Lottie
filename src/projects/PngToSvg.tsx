@@ -66,7 +66,7 @@ export default function PngToSvg() {
   const open = async () => {
     if (!result || opening) return;
     setOpening(true); setError('');
-    try { const id = await createProject(result.scene.name, result.scene); navigate(`/editor/${encodeURIComponent(id)}`); }
+    try { const id = await createProject(result.scene.name, { ...result.scene, files: { ...result.scene.files, source: input ? [{ name: input.file.name, data: input.image }] : undefined } }); navigate(`/editor/${encodeURIComponent(id)}`); }
     catch (error) { setError(error instanceof Error ? error.message : 'Could not create project.'); setOpening(false); }
   };
   return <div className="png-tool">

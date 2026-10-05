@@ -41,5 +41,6 @@ try {
  await React.act(async()=>button('Download SVG').click());assert.equal(await downloaded.text(),svg);
  await React.act(async()=>button('Open in Editor').click());assert.ok(host.querySelector('.ke-canvas-area'),'The existing editor opens');assert.ok(host.querySelector('.ke-canvas-area path'),'The editor renders vector paths');
  assert.equal(globalThis.createdScene.layers.length,2);assert.ok(globalThis.createdScene.layers.every(layer=>layer.type==='path'&&!layer.sourceFrame));
+ assert.equal(globalThis.createdScene.files.source.length,1,'Converted PNG retains original image in user assets');
  console.log('PASS PNG upload, real shipped VTracer/WASM, actual SVG preview markup, valid SVG download, new-project scene and existing editor route');
 }finally{if(root)await React.act(async()=>root.unmount());await unlink(output);await win.happyDOM.abort();URL.createObjectURL=originalCreate;URL.revokeObjectURL=originalRevoke;}

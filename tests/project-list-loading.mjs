@@ -4,7 +4,7 @@ import { writeFile, unlink } from 'node:fs/promises';
 const output = new URL('./.project-list-loading.mjs', import.meta.url);
 globalThis.listOwner = { uid: 'owner-a' };
 globalThis.listDownloads = 0;
-globalThis.listDocuments = [{ id: 'one', data: () => ({ ownerId: 'owner-a', projectId: 'one', name: 'Project', type: 'SVG', layerCount: 1, r2: { thumbnail: 'preview-v1' } }) }];
+globalThis.listDocuments = [{ id: 'one', data: () => ({ ownerId: 'owner-a', projectId: 'one', name: 'Project', type: 'SVG', layerCount: 1, r2: { thumbnail: 'preview-v1', source: ['users/owner-a/projects/one/source/hash/photo.png'], lottie: 'users/owner-a/projects/one/lottie/hash/animation.json' } }) }];
 const mocks = {
   firebase: 'export const db={}; export const firebaseError=null; export function getFirebaseAuth(){return {currentUser:globalThis.listOwner};}',
   firestore: 'export function collection(){} export async function getDocs(){return {docs:globalThis.listDocuments};} export function doc(){} export function getDoc(){} export function setDoc(){} export function updateDoc(){} export function deleteDoc(){} export function serverTimestamp(){} export function runTransaction(){}',
@@ -23,6 +23,7 @@ try {
   const listing = await api.readProjects(project => updates.push(project));
   assert.equal(listing.projects.length, 1, 'Metadata returns while thumbnail download is unresolved');
   assert.equal(listing.projects[0].preview, undefined);
+  assert.deepEqual(listing.projects[0].assets.map(asset=>[asset.name,asset.kind]), [['photo.png','Image'],['Project.json','Lottie']]);
   assert.equal(api.cachedProjects().projects.length, 1, 'Returning dashboard has synchronous project metadata');
   globalThis.resolveThumbnail('data:preview-v1');
   await new Promise(resolve => setTimeout(resolve, 0));
