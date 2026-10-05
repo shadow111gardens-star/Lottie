@@ -926,10 +926,8 @@ function CTA() {
         <div className="relative overflow-hidden rounded-[3rem] bg-slate-900 p-12 text-center md:p-24">
           <div className="absolute -top-40 -right-40 h-80 w-80 rounded-full bg-indigo-600/30 blur-3xl" />
           <div className="absolute -bottom-40 -left-40 h-80 w-80 rounded-full bg-pink-600/20 blur-3xl" />
-          <h2 className="relative z-10 mx-auto max-w-4xl font-display text-5xl font-black leading-[0.95] text-white md:text-8xl">
-            Got an
-            <br />
-            idea?
+          <h2 className="relative z-10 mx-auto max-w-4xl whitespace-nowrap font-display text-[clamp(1.25rem,5.8vw,6rem)] font-black leading-[0.95] text-white">
+            Got an idea?
           </h2>
           <p className="relative z-10 mx-auto mt-6 max-w-lg text-base font-medium leading-relaxed text-slate-300">Bring a file you already have, or start with an empty canvas. See where it takes you.</p>
           <div className="relative z-10 mt-10 flex flex-col items-center justify-center">
@@ -952,9 +950,6 @@ function CTA() {
 /* ───────── Footer ───────── */
 function Footer() {
   const links = [
-    { label: "How it works", to: "#capabilities" },
-    { label: "Exports", to: "#showcase" },
-    { label: "Pricing", to: "#pricing" },
     { label: "Privacy Policy", to: "/privacy" },
     { label: "Terms & Conditions", to: "/terms" },
   ];
@@ -968,11 +963,11 @@ function Footer() {
         </Link>
 
         <p className="text-sm font-medium text-slate-500">
-          Vectors and motion, right in your browser.
+          @build by abhay solanki
         </p>
 
         <nav className="flex flex-wrap items-center justify-center gap-6 md:gap-8">
-          {links.map((link) => link.to.startsWith('#') ? <a key={link.label} href={link.to} className="text-sm font-medium text-slate-500 transition-colors hover:text-slate-900">{link.label}</a> : (
+          {links.map((link) => (
             <Link
               key={link.label}
               to={link.to}
@@ -981,6 +976,11 @@ function Footer() {
               {link.label}
             </Link>
           ))}
+          <a href="https://x.com/abhay8769" target="_blank" rel="noopener noreferrer" aria-label="Abhay Solanki on Twitter (opens in a new tab)" className="inline-flex min-h-11 min-w-11 items-center justify-center text-slate-500 transition-colors hover:text-slate-900">
+            <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M23 3a10.9 10.9 0 0 1-3.14 1.53 4.48 4.48 0 0 0-7.86 3v1A10.66 10.66 0 0 1 3 4s-4 9 5 13a11.64 11.64 0 0 1-7 2c9 5 20 0 20-11.5a4.5 4.5 0 0 0-.08-.83A7.72 7.72 0 0 0 23 3z" />
+            </svg>
+          </a>
         </nav>
       </div>
     </footer>
@@ -999,42 +999,67 @@ function PrivacyPage() {
     {
       title: "1. Information We Collect",
       content:
-        "We collect information you provide directly to us, such as your name, email address, and payment information. We also collect data about how you interact with our platform, including your IP address, browser type, device information, and usage patterns.",
+        <>When you use Vekto, we may collect information you provide directly to us, including your name, email address, and account information.<br /><br />When you create or use projects, we may store project information and content associated with your account, including SVG files, animations, images, videos, and other assets you upload or create.<br /><br />We may also collect limited technical and usage information, such as your IP address, browser type, device information, and information about how you use Vekto, where necessary to operate, secure, and improve the service.</>,
     },
     {
       title: "2. How We Use Your Information",
       content:
-        "We use your information to provide, maintain, and improve Anim8, process transactions, send updates and marketing communications, respond to support requests, and detect fraud or abuse.",
+        <>We use collected information to:<br /><br />
+          • Provide and operate Vekto<br />
+          • Create and manage your account<br />
+          • Store and synchronize your projects and assets<br />
+          • Process payments and purchases<br />
+          • Provide customer support<br />
+          • Improve and maintain Vekto<br />
+          • Detect, prevent, and address fraud, abuse, and security issues<br />
+          • Communicate with you about your account, purchases, and important service updates<br /><br />
+          We do not use your uploaded project content to publicly display or distribute it without your permission.</>,
     },
     {
-      title: "3. Sharing Your Information",
+      title: "3. How We Store Your Data",
       content:
-        "We do not sell your personal information. We may share data with trusted third-party service providers who help us operate our business, such as payment processors, hosting providers, and analytics services, under strict confidentiality agreements.",
+        <>Vekto uses third-party infrastructure providers to operate the service.<br /><br />
+          Depending on the type of data, information may be stored or processed using services such as:<br /><br />
+          • <strong>Firebase</strong> for authentication and project/account metadata<br />
+          • <strong>Cloudflare R2</strong> for uploaded files and project assets<br />
+          • <strong>Vercel</strong> for application hosting and deployment<br />
+          • <strong>Payment providers</strong> for processing purchases and subscriptions<br /><br />
+          These providers may process information according to their own privacy policies and applicable terms.</>,
     },
     {
-      title: "4. Data Security",
+      title: "4. Sharing Your Information",
       content:
-        "We implement industry-standard security measures to protect your data, including encryption in transit and at rest, access controls, and regular security audits. However, no method of transmission over the internet is 100% secure.",
+        <>We do not sell your personal information.<br /><br />We may share information with service providers that help us operate Vekto, such as authentication, cloud storage, hosting, analytics, and payment providers.<br /><br />We may also disclose information when required by law, to protect our rights or users, or to prevent fraud, abuse, or security threats.</>,
     },
     {
-      title: "5. Your Rights",
+      title: "5. Data Security",
       content:
-        "You have the right to access, update, or delete your personal information. You may also object to certain processing activities or request a copy of your data. Contact us at privacy@anim8.studio for any data requests.",
+        <>We use reasonable technical and organizational measures designed to protect your information from unauthorized access, loss, misuse, or disclosure.<br /><br />However, no method of transmitting or storing information over the internet is completely secure, and we cannot guarantee absolute security.</>,
     },
     {
-      title: "6. Cookies & Tracking",
+      title: "6. Your Data and Projects",
       content:
-        "We use cookies and similar technologies to enhance your experience, analyze site traffic, and understand user behavior. You can manage your cookie preferences through your browser settings.",
+        <>You retain ownership of the content and projects you create or upload to Vekto, subject to any rights granted to us that are necessary to provide the service.<br /><br />You may request deletion of your account and associated personal information by contacting us.<br /><br />Some information may need to be retained where required by law, for legitimate business purposes, or to prevent fraud and abuse.</>,
     },
     {
-      title: "7. Children's Privacy",
+      title: "7. Cookies and Analytics",
       content:
-        "Anim8 is not intended for children under the age of 13. We do not knowingly collect personal information from children. If you believe we have collected data from a child, please contact us immediately.",
+        <>Vekto may use cookies and similar technologies that are necessary to operate the website, maintain sessions, understand usage, and improve the service.<br /><br />Where applicable, you may control certain cookies through your browser settings.</>,
     },
     {
-      title: "8. Changes to This Policy",
+      title: "8. Payments",
       content:
-        "We may update this Privacy Policy from time to time. We will notify you of significant changes by posting the new policy on this page and updating the effective date.",
+        <>Payments for Vekto subscriptions or lifetime purchases are processed by third-party payment providers.<br /><br />Vekto does not directly store your complete payment card details. Payment providers may collect and process payment information according to their own privacy policies.</>,
+    },
+    {
+      title: "9. Children's Privacy",
+      content:
+        <>Vekto is not intended for children under the age of 13. We do not knowingly collect personal information from children under 13.<br /><br />If you believe that a child has provided us with personal information, please contact us so we can take appropriate action.</>,
+    },
+    {
+      title: "10. Changes to This Policy",
+      content:
+        <>We may update this Privacy Policy from time to time.<br /><br />When we make changes, we will update the Effective Date at the top of this page. If we make significant changes, we may provide additional notice where appropriate.</>,
     },
   ];
 
@@ -1068,7 +1093,7 @@ function PrivacyPage() {
             Privacy Policy
           </h1>
           <p className="mt-6 text-base font-medium text-slate-500">
-            Effective Date: {new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
+            Effective Date: October 5, 2026
           </p>
         </motion.div>
 
@@ -1094,11 +1119,10 @@ function PrivacyPage() {
         >
           <h2 className="font-display text-2xl font-black text-slate-900">Contact Us</h2>
           <p className="mt-3 text-base font-medium leading-relaxed text-slate-500">
-            If you have any questions about this Privacy Policy, please contact us at{" "}
-            <a href="mailto:privacy@anim8.studio" className="text-indigo-600 hover:underline">
-              privacy@anim8.studio
+            If you have questions about this Privacy Policy, your personal information, or a data deletion request, please contact us at:<br /><br />
+            <a href="mailto:solankiabhay722@gmail.com" className="text-indigo-600 hover:underline">
+              <strong>solankiabhay722@gmail.com</strong>
             </a>
-            .
           </p>
         </motion.div>
       </main>
@@ -1133,56 +1157,21 @@ function TermsPage() {
   }, [location]);
 
   const sections = [
-    {
-      title: "1. Acceptance of Terms",
-      content:
-        "By accessing or using Anim8, you agree to be bound by these Terms and Conditions. If you do not agree to these terms, please do not use our platform. These terms apply to all visitors, users, and others who access or use the service.",
-    },
-    {
-      title: "2. Description of Service",
-      content:
-        "Anim8 provides a browser-based motion editor that converts video into editable vector animation. Users can export animations in formats including MP4, Animated SVG, and Lottie JSON. We reserve the right to modify, suspend, or discontinue any part of the service at any time.",
-    },
-    {
-      title: "3. User Accounts",
-      content:
-        "To access certain features, you may need to create an account. You are responsible for maintaining the confidentiality of your account credentials and for all activities that occur under your account. You agree to notify us immediately of any unauthorized use.",
-    },
-    {
-      title: "4. Subscriptions and Payments",
-      content:
-        "Some features of Anim8 require payment. All payments are processed securely through our payment partners. Subscriptions renew automatically unless cancelled. Lifetime deals are non-refundable and tied to a single user account.",
-    },
-    {
-      title: "5. Intellectual Property",
-      content:
-        "You retain ownership of any content you create using Anim8. However, you grant us a limited license to use your content solely for the purpose of operating and improving the service. All Anim8 branding, software, and code remain our intellectual property.",
-    },
-    {
-      title: "6. Acceptable Use",
-      content:
-        "You agree not to use Anim8 for any unlawful purpose, to distribute malware, to infringe intellectual property rights, or to attempt to disrupt our services. We reserve the right to suspend or terminate accounts that violate these rules.",
-    },
-    {
-      title: "7. Limitation of Liability",
-      content:
-        "Anim8 is provided on an \"as is\" and \"as available\" basis. We do not guarantee that the service will be uninterrupted or error-free. To the fullest extent permitted by law, we are not liable for any indirect, incidental, or consequential damages.",
-    },
-    {
-      title: "8. Termination",
-      content:
-        "We may terminate or suspend your access to Anim8 immediately, without prior notice, for conduct that we believe violates these terms or is harmful to other users, us, or third parties.",
-    },
-    {
-      title: "9. Governing Law",
-      content:
-        "These terms shall be governed by and construed in accordance with the laws of the jurisdiction in which Anim8 operates, without regard to its conflict of law provisions.",
-    },
-    {
-      title: "10. Changes to Terms",
-      content:
-        "We may update these Terms and Conditions from time to time. Continued use of the platform after changes constitutes acceptance of the new terms. We encourage you to review this page periodically.",
-    },
+    { title: "1. Acceptance of Terms", content: <>{"By accessing or using Vekto, you agree to be bound by these Terms & Conditions. If you do not agree with these terms, please do not use Vekto."}<br /><br />{"These Terms apply to all visitors, users, and customers who access or use the Vekto service."}</> },
+    { title: "2. Description of Vekto", content: <>{"Vekto is a browser-based creative tool for creating, editing, vectorizing, and animating digital content."}<br /><br />{"Vekto may provide features including:"}<br /><br />{"? Image and video vectorization"}<br />{"? Editable SVG creation and editing"}<br />{"? SVG animation"}<br />{"? Lottie animation and export"}<br />{"? Keyframes and animation controls"}<br />{"? Spring and text animations"}<br />{"? Camera motion and character rigging"}<br />{"? Project storage and management"}<br />{"? Other features that may be added or changed over time"}<br /><br />{"We may modify, improve, suspend, or discontinue features of Vekto at any time."}</> },
+    { title: "3. User Accounts", content: <>{"Some Vekto features require an account."}<br /><br />{"You are responsible for:"}<br /><br />{"? Providing accurate account information"}<br />{"? Keeping your account credentials secure"}<br />{"? Maintaining the security of your account"}<br />{"? All activity performed through your account"}<br /><br />{"You must notify us if you believe your account has been accessed without authorization."}</> },
+    { title: "4. Plans, Payments and Subscriptions", content: <>{"Vekto currently offers paid access through monthly and lifetime plans."}<br /><br />{"Monthly Plan"}<br /><br />{"The monthly plan costs $5 per month."}<br /><br />{"The subscription may automatically renew each month unless cancelled before the next billing period."}<br /><br />{"Lifetime Plan"}<br /><br />{"The lifetime plan costs $29 as a one-time payment."}<br /><br />{"A lifetime purchase provides continued access to the Vekto features included with the lifetime plan for the lifetime of the Vekto service, subject to these Terms."}<br /><br />{"Lifetime access does not guarantee that every future feature introduced by Vekto will be included unless we explicitly state otherwise."}<br /><br />{"Payments"}<br /><br />{"Payments are processed through third-party payment providers. Vekto does not directly store your complete payment card information."}<br /><br />{"Prices may change in the future. Any changes will not affect a payment that has already been completed unless otherwise required by law."}</> },
+    { title: "5. Refunds and Cancellations", content: <>{"You may cancel your monthly subscription at any time. Cancellation will normally prevent the next renewal while allowing access to continue through the current paid billing period."}<br /><br />{"Because lifetime purchases provide permanent access to the service, lifetime purchases are generally non-refundable, except where a refund is required by applicable law or where Vekto chooses to provide one."}<br /><br />{"If you experience a billing issue, contact us at solankiabhay722@gmail.com."}</> },
+    { title: "6. Your Content and Intellectual Property", content: <>{"You retain ownership of the content and projects that you create or upload to Vekto."}<br /><br />{"This may include:"}<br /><br />{"? SVG files"}<br />{"? Images"}<br />{"? Videos"}<br />{"? Animations"}<br />{"? Lottie files"}<br />{"? Designs"}<br />{"? Other project assets"}<br /><br />{"You grant Vekto a limited, non-exclusive license to process, store, transmit, and display your content only as necessary to provide and operate the service."}<br /><br />{"Vekto does not claim ownership of your content."}<br /><br />{"Vekto's software, website, branding, logos, design, and other original materials remain the property of Vekto or their respective owners."}</> },
+    { title: "7. Third-Party Content", content: <>{"You are responsible for ensuring that you have the necessary rights, licenses, and permissions for any content you upload, import, convert, or use through Vekto."}<br /><br />{"You must not use Vekto to process or distribute content that infringes another person's copyright, trademark, privacy rights, or other intellectual property rights."}</> },
+    { title: "8. Acceptable Use", content: <>{"You agree not to:"}<br /><br />{"? Use Vekto for unlawful purposes"}<br />{"? Upload malware, viruses, or other harmful code"}<br />{"? Attempt to gain unauthorized access to Vekto or another user's account"}<br />{"? Interfere with or disrupt the service"}<br />{"? Abuse, overload, or attack our infrastructure"}<br />{"? Reverse engineer or attempt to extract source code from the service where prohibited by law"}<br />{"? Use Vekto to infringe the rights of others"}<br />{"? Use the service to create or distribute content that violates applicable laws"}<br /><br />{"We may suspend or terminate accounts that violate these Terms or create a risk to Vekto, our users, or third parties."}</> },
+    { title: "9. Service Availability", content: <>{"Vekto is provided on an \"as is\" and \"as available\" basis."}<br /><br />{"We do not guarantee that:"}<br /><br />{"? Vekto will always be available"}<br />{"? The service will always be error-free"}<br />{"? All features will always work without interruption"}<br />{"? Uploaded content will never be lost or corrupted"}<br /><br />{"We recommend keeping independent backups of important projects and exported files."}</> },
+    { title: "10. Data and Project Storage", content: <>{"Vekto may use third-party infrastructure providers to store account information, project metadata, uploaded files, and other assets."}<br /><br />{"While we take reasonable measures to protect stored data, you acknowledge that no online storage system can guarantee absolute security or permanent availability."}<br /><br />{"Our handling of personal information is described in our Privacy Policy."}</> },
+    { title: "11. Termination", content: <>{"You may stop using Vekto at any time."}<br /><br />{"We may suspend or terminate your access if you materially violate these Terms, engage in abusive or unlawful activity, or create a security or operational risk."}<br /><br />{"Where appropriate, we may provide notice before termination."}<br /><br />{"Termination does not automatically remove obligations that by their nature should continue after termination."}</> },
+    { title: "12. Limitation of Liability", content: <>{"To the fullest extent permitted by applicable law, Vekto and its operators will not be liable for indirect, incidental, special, consequential, or exemplary damages arising from your use of, or inability to use, the service."}<br /><br />{"This includes loss of data, projects, revenue, profits, or business opportunities, to the extent permitted by law."}<br /><br />{"Nothing in these Terms excludes or limits liability that cannot legally be excluded or limited."}</> },
+    { title: "13. Indemnification", content: <>{"To the extent permitted by applicable law, you agree to be responsible for claims, losses, liabilities, and expenses arising from your unlawful use of Vekto, your violation of these Terms, or your infringement of the rights of another person or entity."}</> },
+    { title: "14. Governing Law", content: <>{"These Terms shall be governed by and interpreted according to the applicable laws of India, without regard to conflict-of-law principles."}<br /><br />{"Any disputes will be subject to the jurisdiction of the courts having appropriate jurisdiction in India."}</> },
+    { title: "15. Changes to These Terms", content: <>{"We may update these Terms & Conditions from time to time."}<br /><br />{"When changes are made, we will update the Last updated date at the top of this page."}<br /><br />{"Your continued use of Vekto after updated Terms become effective constitutes acceptance of the revised Terms, to the extent permitted by applicable law."}</> },
   ];
 
   return (
@@ -1215,7 +1204,7 @@ function TermsPage() {
             Terms & Conditions
           </h1>
           <p className="mt-6 text-base font-medium text-slate-500">
-            Last updated: {new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
+            Last updated: October 5, 2026
           </p>
         </motion.div>
 
@@ -1241,11 +1230,10 @@ function TermsPage() {
         >
           <h2 className="font-display text-2xl font-black text-slate-900">Questions?</h2>
           <p className="mt-3 text-base font-medium leading-relaxed text-slate-500">
-            If you have any questions about these Terms, please contact us at{" "}
-            <a href="mailto:legal@anim8.studio" className="text-indigo-600 hover:underline">
-              legal@anim8.studio
+            If you have any questions about these Terms &amp; Conditions, payments, refunds, or your account, please contact us at:<br /><br />
+            <a href="mailto:solankiabhay722@gmail.com" className="text-indigo-600 hover:underline">
+              solankiabhay722@gmail.com
             </a>
-            .
           </p>
         </motion.div>
       </main>
