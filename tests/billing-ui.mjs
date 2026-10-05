@@ -29,19 +29,19 @@ try {
   assert.match(host.textContent, /Payment processing/);
   assert.equal(calls.at(-1).url, '/api/entitlement');
   assert.equal(calls.at(-1).options.headers.Authorization, 'Bearer verified-client-token');
-  response = { entitlement: { plan: 'pro', active: true, lifetime: false } };
+  response = { entitlement: { plan: 'pro', active: true, lifetime: false, subscriptionStatus: 'active' } };
   await React.act(async () => { window.dispatchEvent(new win.Event('focus')); await new Promise(resolve => setTimeout(resolve, 5)); });
   assert.match(host.textContent, /Payment processing/, 'Existing Pro access does not confirm a pending Lifetime upgrade');
   response = { entitlement: { plan: 'lifetime', active: true, lifetime: true } };
   await React.act(async () => { window.dispatchEvent(new win.Event('focus')); await new Promise(resolve => setTimeout(resolve, 5)); });
-  assert.equal(host.textContent, 'Lifetime · Active');
+  assert.equal(host.textContent, 'Lifetime \u00b7 Active');
   response = { entitlement: { plan: 'pro', active: false, lifetime: false } };
   window.history.replaceState(null, '', '/dashboard');
   await React.act(async () => { root.render(React.createElement(View, { key: 'normal-dashboard' })); await new Promise(resolve => setTimeout(resolve, 5)); });
-  assert.equal(host.textContent, 'Pro · Inactive');
+  assert.equal(host.textContent, 'Pro \u00b7 Inactive');
   response = { checkoutUrl: 'https://checkout.dodopayments.com/test-only' };
   for (const plan of ['pro', 'lifetime']) {
-    await api.createCheckout(plan);
+    await React.act(async () => api.createCheckout(plan));
     assert.equal(calls.at(-1).url, '/api/checkout');
     assert.equal(calls.at(-1).options.method, 'POST');
     assert.deepEqual(JSON.parse(calls.at(-1).options.body), { plan });

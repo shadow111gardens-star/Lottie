@@ -9,6 +9,7 @@ import { GifWriter } from 'omggif';
 import { initializeApp, deleteApp } from 'firebase/app';
 import { connectAuthEmulator, signInWithCredential, GoogleAuthProvider, signOut, getAuth } from 'firebase/auth';
 import { connectFirestoreEmulator, doc, getDoc, setDoc, getFirestore, terminate, disableNetwork, enableNetwork } from 'firebase/firestore';
+import { billingFirestore } from '../server/firebase-admin.mjs';
 import { createStorageApi } from '../server/storage.mjs';
 import vercelStorage from '../api/storage.mjs';
 import { VTracerWorker } from './vtracer-worker.mjs';
@@ -59,6 +60,8 @@ try {
   const credential = GoogleAuthProvider.credential(JSON.stringify({ sub: 'cloud-test-owner', email: 'owner@example.test', email_verified: true, name: 'Cloud Test' }));
   const { user } = await signInWithCredential(api.auth, credential);
   assert.equal((await api.currentOwner()).uid, user.uid);
+  // Existing paid-project test fixture is isolated to the required demo emulator.
+  await billingFirestore().doc(`users/${user.uid}`).set({ plan: 'pro', subscriptionStatus: 'active', lifetime: false });
   const callsBeforeBlank = storageCalls;
   await disableNetwork(api.db);
   const instant = api.createBlankProject('Instant blank test'); ids.add(instant.id);

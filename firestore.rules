@@ -8,10 +8,16 @@ service cloud.firestore {
     }
     match /users/{uid}/projects/{projectId} {
       function owner() { return request.auth != null && request.auth.uid == uid; }
+      function paid() {
+        let billing = get(/databases/$(database)/documents/users/$(uid)).data;
+        return (billing.plan == 'pro' && billing.subscriptionStatus == 'active')
+          || (billing.plan == 'lifetime' && billing.lifetime == true);
+      }
+      // Owners retain recovery/read/delete access; paid creation/editing is enforced in rules.
       allow read, delete: if owner();
-      allow create: if owner() && request.resource.data.projectId == projectId
+      allow create: if owner() && paid() && request.resource.data.projectId == projectId
         && request.resource.data.ownerId == uid;
-      allow update: if owner() && request.resource.data.projectId == projectId
+      allow update: if owner() && paid() && request.resource.data.projectId == projectId
         && request.resource.data.ownerId == uid
         && request.resource.data.createdAt == resource.data.createdAt;
     }

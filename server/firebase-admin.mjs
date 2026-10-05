@@ -13,4 +13,4 @@ export function firebaseAdmin() {
   return initializeApp(options, 'vekto-billing');
 }
 export const billingFirestore = () => getFirestore(firebaseAdmin());
-export const verifyFirebaseToken = token => getAuth(firebaseAdmin()).verifyIdToken(token);
+export const verifyFirebaseToken = token => getAuth(firebaseAdmin()).verifyIdToken(token, true);

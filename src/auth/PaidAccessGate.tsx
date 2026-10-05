@@ -5,8 +5,8 @@ import './paid-access.css';
 
 /** Protected content is never mounted until the server confirms paid access. */
 export default function PaidAccessGate({ children, pricing }: { children: ReactNode; pricing: ReactNode }) {
-  const billing = useEntitlement({ pollUntilActive: true });
   const location = useLocation();
+  const billing = useEntitlement({ pollUntilActive: true, revalidationKey: `${location.key}:${location.pathname}${location.search}` });
   const panel = useRef<HTMLDivElement>(null);
   const blocked = billing.authReady && !!billing.userId && !billing.active;
   useEffect(() => {
@@ -16,6 +16,7 @@ export default function PaidAccessGate({ children, pricing }: { children: ReactN
     panel.current?.focus();
     return () => { document.body.style.overflow = previousOverflow; };
   }, [blocked]);
+  if (billing.authError) return <div className="paid-access-check" role="alert">{billing.status}</div>;
   if (!billing.authReady) return <div className="paid-access-check" role="status">Checking account access…</div>;
   if (!billing.userId) {
     if (/^\/(dashboard|editor|project|projects)(\/|$)/.test(location.pathname)) return <Navigate to="/" replace />;

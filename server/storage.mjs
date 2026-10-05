@@ -1,8 +1,7 @@
 import express from 'express';
 import { randomUUID } from 'node:crypto';
 import { config } from 'dotenv';
-import { getApps, initializeApp } from 'firebase-admin/app';
-import { getAuth } from 'firebase-admin/auth';
+import { verifyFirebaseToken } from './firebase-admin.mjs';
 import { requirePaidEntitlement } from './payments.mjs';
 import { S3Client, PutObjectCommand, GetObjectCommand, ListObjectsV2Command, CopyObjectCommand, DeleteObjectsCommand } from '@aws-sdk/client-s3';
 
@@ -44,10 +43,7 @@ export function createStorageApi(options = {}) {
     req.storageStage = stage;
     if (diagnostics) console.info(JSON.stringify({ event: 'project-storage', requestId: req.storageRequestId, route: req.storageRoute || req.originalUrl?.split('?')[0], method: req.method, uid: req.identity?.uid || null, projectId: req.storageProjectId || null, key: req.storageKey || null, bucket, exists, stage }));
   };
-  const verify = options.verify || (async token => {
-    const app = getApps().find(app => app.name === 'storage-api') || initializeApp({ projectId: process.env.VITE_FIREBASE_PROJECT_ID }, 'storage-api');
-    return getAuth(app).verifyIdToken(token);
-  });
+  const verify = options.verify || verifyFirebaseToken;
   // Use the user's ID token for Firestore REST; this also enforces deployed rules.
   const authorizeProject = options.authorizeProject || (async (uid, id, token, mutation) => {
     const host = process.env.FIRESTORE_EMULATOR_HOST ? `http://${process.env.FIRESTORE_EMULATOR_HOST}` : 'https://firestore.googleapis.com';

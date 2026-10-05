@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import { build } from 'esbuild';
 import { writeFile, unlink } from 'node:fs/promises';
+import { Window } from 'happy-dom';
+const browser = new Window({url:'http://localhost/dashboard'});
+globalThis.window = browser;
 const output = new URL('./.project-list-loading.mjs', import.meta.url);
 globalThis.listOwner = { uid: 'owner-a' };
 globalThis.listDownloads = 0;
@@ -41,4 +44,4 @@ try {
   await new Promise(resolve => setTimeout(resolve, 0));
   assert.equal(updates.length, 1, 'Late thumbnail cannot update signed-out dashboard');
   console.log('PASS Project metadata loads before previews, synchronous cache, thumbnail reuse and owner isolation');
-} finally { await unlink(output); }
+} finally { await unlink(output); await browser.happyDOM.abort(); delete globalThis.window; }

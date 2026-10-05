@@ -22,7 +22,7 @@ export function paymentConfig(env = process.env) {
 }
 export function entitlementFromUser(user) {
   if (user?.plan === 'lifetime' && user.lifetime === true) return { plan: 'lifetime', active: true, lifetime: true };
-  if (user?.plan === 'pro') return { plan: 'pro', active: user.subscriptionStatus === 'active', lifetime: false };
+  if (user?.plan === 'pro') return { plan: 'pro', active: user.subscriptionStatus === 'active', lifetime: false, subscriptionStatus: typeof user.subscriptionStatus === 'string' ? user.subscriptionStatus : 'inactive' };
   return null;
 }
 export async function getUserEntitlement(uid, db = billingFirestore()) {

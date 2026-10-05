@@ -3,7 +3,8 @@ import { randomBytes } from 'node:crypto';
 import { Webhook } from 'standardwebhooks';
 import DodoPayments from 'dodopayments';
 import { createPaymentsApi, entitlementFromUser, getUserEntitlement, requirePaidEntitlement, paymentConfig, supportedEvents } from '../server/payments.mjs';
-import { billingFirestore } from '../server/firebase-admin.mjs';
+import { billingFirestore, firebaseAdmin, verifyFirebaseToken } from '../server/firebase-admin.mjs';
+import { getAuth as adminAuth } from 'firebase-admin/auth';
 import { getApps, deleteApp } from 'firebase-admin/app';
 import checkoutRoute from '../api/checkout.mjs';
 import entitlementRoute from '../api/entitlement.mjs';
@@ -89,7 +90,7 @@ try {
   const duplicates = await Promise.all([deliver(active, 'active-event'), deliver(active, 'active-event')]);
   assert.ok(duplicates.every(result => result.status === 200));
   assert.equal((await Promise.all(duplicates.map(result => result.json()))).filter(result => result.duplicate).length, 1);
-  assert.deepEqual(await getUserEntitlement('alice', db), { plan: 'pro', active: true, lifetime: false });
+  assert.deepEqual(await getUserEntitlement('alice', db), { plan: 'pro', active: true, lifetime: false, subscriptionStatus: 'active' });
   assert.equal((await checkout('pro')).status, 409);
   for (const [type, status] of [
     ['subscription.renewed', 'active'], ['subscription.cancelled', 'cancelled'], ['subscription.expired', 'expired'],
@@ -146,7 +147,7 @@ try {
   assert.equal(denied.status, 402, 'Paid cloud uploads require actual server entitlement');
   await assert.rejects(requirePaidEntitlement('unpaid', db), { status: 402 });
   assert.equal(entitlementFromUser({ plan: 'lifetime', lifetime: false }), null);
-  assert.deepEqual(entitlementFromUser({ plan: 'pro', subscriptionStatus: 'past_due' }), { plan: 'pro', active: false, lifetime: false });
+  assert.deepEqual(entitlementFromUser({ plan: 'pro', subscriptionStatus: 'past_due' }), { plan: 'pro', active: false, lifetime: false, subscriptionStatus: 'past_due' });
   assert.throws(() => paymentConfig({}), /configured/);
   assert.throws(() => paymentConfig({ DODO_PAYMENTS_ENVIRONMENT: 'production' }), /configured/);
   if (process.env.FIRESTORE_EMULATOR_HOST && process.env.FIREBASE_AUTH_EMULATOR_HOST) {
@@ -167,6 +168,23 @@ try {
       await assert.rejects(firestore.getDoc(firestore.doc(clientDb, 'users', 'alice')), { code: 'permission-denied' });
       await assert.rejects(firestore.setDoc(firestore.doc(clientDb, 'dodoWebhookEvents', 'fake'), { processedAt: 1 }), { code: 'permission-denied' });
       await assert.rejects(firestore.getDoc(firestore.doc(clientDb, 'dodoCheckouts', pro.metadata.vekto_checkout)), { code: 'permission-denied' });
+      const projectRef=firestore.doc(clientDb,'users',user.uid,'projects','paid-rule-project');
+      const projectData={projectId:'paid-rule-project',ownerId:user.uid,createdAt:1,name:'Existing project'};
+      await firestore.setDoc(projectRef,projectData);
+      await db.doc(`users/${user.uid}`).set({plan:'pro',subscriptionStatus:'cancelled',lifetime:false});
+      await assert.rejects(firestore.updateDoc(projectRef,{name:'Console bypass'}),{code:'permission-denied'});
+      await assert.rejects(firestore.setDoc(firestore.doc(clientDb,'users',user.uid,'projects','unpaid-new'),{...projectData,projectId:'unpaid-new'}),{code:'permission-denied'});
+      await db.doc(`users/${user.uid}`).set({plan:'lifetime',lifetime:true,subscriptionStatus:'active'});
+      await firestore.updateDoc(projectRef,{name:'Same UID restored access'});
+      assert.equal((await firestore.getDoc(projectRef)).data().ownerId,user.uid);
+      for(const field of ['subscriptionStatus','lifetime','dodoCustomerId','dodoSubscriptionId','dodoLifetimePaymentId','dodoLastPaymentId','dodoLastPaymentStatus'])await assert.rejects(firestore.updateDoc(firestore.doc(clientDb,'users',user.uid),{[field]:'spoof'}),{code:'permission-denied'});
+      for(const collection of ['dodoCheckouts','dodoBillingObjects','dodoWebhookEvents'])await assert.rejects(firestore.setDoc(firestore.doc(clientDb,collection,'client-bypass'),{uid:user.uid,plan:'lifetime'}),{code:'permission-denied'});
+      const verifiedToken = await user.getIdToken();
+      assert.equal((await verifyFirebaseToken(verifiedToken)).uid,user.uid);
+      await adminAuth(firebaseAdmin()).updateUser(user.uid,{disabled:true});
+      await assert.rejects(verifyFirebaseToken(verifiedToken),{code:'auth/user-disabled'});
+      await adminAuth(firebaseAdmin()).updateUser(user.uid,{disabled:false});
+      console.log('PASS shared Admin verification accepts the real emulator user and rejects disabled-user tokens');
       console.log('PASS real Firestore rules: owner billing read, denied client entitlement writes, denied other-user reads and private webhook/checkout records');
     } finally { await firestore.terminate(clientDb); await firebase.deleteApp(clientApp); }
   }
