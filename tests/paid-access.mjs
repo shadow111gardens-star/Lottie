@@ -22,11 +22,12 @@ const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 try{
  const{Gate}=await import(output.href);
  const Content=()=>{React.useEffect(()=>{mounts++;},[]);return React.createElement('div',{className:'protected-content'},'Workspace');};
- const Harness=()=>{navigate=useNavigate();return React.createElement(Gate,{pricing:React.createElement('section',{id:'pricing'},React.createElement('button',null,'Choose Pro'),React.createElement('button',null,'Choose Lifetime'))},React.createElement(Routes,null,...['/','/dashboard','/editor','/editor/:id','/projects/:id'].map(path=>React.createElement(Route,{key:path,path,element:React.createElement(Content)}))));};
+ const Harness=()=>{navigate=useNavigate();return React.createElement(Routes,null,...['/','/privacy','/terms'].map(path=>React.createElement(Route,{key:path,path,element:React.createElement('div',{className:'public-content'},'Public page')})),...['/dashboard','/editor','/editor/:id','/projects/:id'].map(path=>React.createElement(Route,{key:path,path,element:React.createElement(Gate,{pricing:React.createElement('section',{id:'pricing'},React.createElement('button',null,'Choose Pro'),React.createElement('button',null,'Choose Lifetime'))},React.createElement(Content))})));};
  let renderCount=0;
  const render=async path=>React.act(async()=>{root.render(React.createElement(MemoryRouter,{key:++renderCount,initialEntries:[path]},React.createElement(Harness)));await pause(10);});
  const gated=()=>{assert.ok(host.querySelector('[role="dialog"]'));assert.equal(host.querySelector('.protected-content'),null);assert.equal(host.querySelector('[aria-label="Close"]'),null);};
- for(const path of ['/dashboard','/editor','/editor/project-123','/projects/project-123','/']){await render(path);gated();assert.equal(mounts,0);}
+ for(const path of ['/','/privacy','/terms']){await render(path);assert.ok(host.querySelector('.public-content'));assert.equal(host.querySelector('[role="dialog"]'),null);assert.equal(calls,0);}
+ for(const path of ['/dashboard','/editor','/editor/project-123','/projects/project-123']){await render(path);gated();assert.equal(mounts,0);}
  await React.act(async()=>host.querySelector('[role="dialog"]').dispatchEvent(new win.KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true})));gated();
  await React.act(async()=>host.querySelector('.paid-access-backdrop').click());gated();
  await React.act(async()=>navigate('/editor/bypass-attempt'));gated();assert.equal(mounts,0);
@@ -61,7 +62,8 @@ try{
  // Logout removes access and stale entitlement, restoring public UI only.
  await React.act(async()=>{globalThis.gateUser=null;for(const listener of globalThis.gateAuthListeners)listener(null);await pause(10);});assert.equal(host.querySelector('[role="dialog"]'),null);
  assert.equal(window.localStorage.getItem('plan'),'lifetime','Storage claims remain irrelevant');
+ await React.act(async()=>{globalThis.gateUser={uid:'unpaid-user',getIdToken:async()=> 'test-only-token'};});await render('/dashboard');
  await React.act(async()=>{for(const listener of globalThis.gateAuthErrors)listener(new Error('Auth unavailable'));await pause(10);});assert.ok(host.querySelector('[role="alert"]'));assert.equal(host.querySelector('.protected-content'),null);
- const app=await readFile('src/App.tsx','utf8');assert.match(app,/<PaidAccessGate pricing=\{<Pricing \/>\}><Routes>/);assert.match(app,/<\/Routes><\/PaidAccessGate>/);
- console.log('PASS unpaid direct URLs/refresh/navigation, no protected mounts, ESC/backdrop blocking, inactive/malformed/error fail-closed, confirmed Pro/Lifetime unlock, automatic webhook polling, and global route boundary');
+ const app=await readFile('src/App.tsx','utf8');assert.match(app,/<GoogleSignInProvider><Routes>/);for(const path of ['/dashboard','/editor','/editor/:projectId'])assert.ok(app.includes(`path="${path}" element={<PaidAccessGate`));assert.match(app,/path="\/" element=\{<LandingPage/);
+ console.log('PASS unpaid direct URLs/refresh/navigation, no protected mounts, ESC/backdrop blocking, inactive/malformed/error fail-closed, confirmed Pro/Lifetime unlock, automatic webhook polling, and public landing/legal routes with protected workspace boundaries');
 }finally{await React.act(async()=>root.unmount());globalThis.fetch=originalFetch;await unlink(output);await win.happyDOM.abort();delete globalThis.gateUser;delete globalThis.gateAuthListeners;delete globalThis.gateAuthErrors;}

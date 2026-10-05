@@ -1332,13 +1332,13 @@ export default function App() {
   const [loading, setLoading] = useState(true);
 
   return (
-    <GoogleSignInProvider><PaidAccessGate pricing={<Pricing />}><Routes>
+    <GoogleSignInProvider><Routes>
       <Route path="/" element={<LandingPage loading={loading} setLoading={setLoading} />} />
       <Route path="/privacy" element={<PrivacyPage />} />
       <Route path="/terms" element={<TermsPage />} />
-      <Route path="/dashboard" element={<Dashboard />} />
-      <Route path="/editor" element={<Editor />} />
-      <Route path="/editor/:projectId" element={<Editor />} />
-    </Routes></PaidAccessGate></GoogleSignInProvider>
+      <Route path="/dashboard" element={<PaidAccessGate pricing={<Pricing />}><Dashboard /></PaidAccessGate>} />
+      <Route path="/editor" element={<PaidAccessGate pricing={<Pricing />}><Editor /></PaidAccessGate>} />
+      <Route path="/editor/:projectId" element={<PaidAccessGate pricing={<Pricing />}><Editor /></PaidAccessGate>} />
+    </Routes></GoogleSignInProvider>
   );
 }
