@@ -2,6 +2,8 @@ import { useEffect, useRef, type ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useEntitlement } from '../lib/billing';
 import './paid-access.css';
+import { Crown } from 'lucide-react';
+import LockedDashboardPreview from './LockedDashboardPreview';
 
 /** Protected content is never mounted until the server confirms paid access. */
 export default function PaidAccessGate({ children, pricing }: { children: ReactNode; pricing: ReactNode }) {
@@ -23,7 +25,7 @@ export default function PaidAccessGate({ children, pricing }: { children: ReactN
     return children;
   }
   if (billing.active) return children;
-  return <div className="paid-access-backdrop">
+  return <><LockedDashboardPreview /><div className="paid-access-backdrop">
     <div ref={panel} tabIndex={-1} className="paid-access-dialog" role="dialog" aria-modal="true" aria-labelledby="paid-access-title" aria-describedby="paid-access-status" onKeyDown={event => {
       if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); }
       if (event.key === 'Tab') {
@@ -34,8 +36,8 @@ export default function PaidAccessGate({ children, pricing }: { children: ReactN
         else if (!event.shiftKey && (document.activeElement === last || document.activeElement === panel.current)) { event.preventDefault(); first.focus(); }
       }
     }}>
-      <header className="paid-access-heading"><h1 id="paid-access-title">Choose a plan to continue</h1><p>Access unlocks once your Pro or Lifetime purchase is confirmed.</p><p id="paid-access-status" role="status" aria-live="polite">{billing.status}</p></header>
+      <header className="paid-access-heading"><div className="paid-access-kicker"><Crown size={25} /><span>Unlock your creative space</span></div><h1 id="paid-access-title">Choose a plan to continue</h1><p>Get unlimited access to create, animate and export your projects.</p><p id="paid-access-status" role="status" aria-live="polite">{billing.status}</p></header>
       {pricing}
     </div>
-  </div>;
+  </div></>;
 }
