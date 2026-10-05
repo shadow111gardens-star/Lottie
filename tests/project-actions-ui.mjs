@@ -19,9 +19,9 @@ export function createBlankProject(){globalThis.actionCreates++; return globalTh
 export function localProject(id){return globalThis.actionProject?.id===id?globalThis.actionProject:null;}
 export async function loadProject(){throw new Error('New Project must never wait for a loader');}
 export async function saveProject(){globalThis.actionSaves++; return new Promise(()=>{});} export async function preserveDraft(){}
-export async function readProjects(){return {projects:[],invalid:0};} export function sortProjects(items){return items;}
+export async function readProjects(){return {projects:globalThis.actionShowExisting?[{...globalThis.actionProject,type:"SVG",createdAt:null,editedAt:null,openedAt:null}]:[],invalid:0};} export function sortProjects(items){return items;}
 export function editedLabel(){return '';} export async function createProject(){} export async function deleteProject(){}
-export async function duplicateProject(){} export async function openProject(){} export async function renameProject(){}
+export async function duplicateProject(){} export async function openProject(id,metadataOnly){globalThis.actionOpenMetadata=metadataOnly;return new Promise(()=>{});} export async function renameProject(){}
 export async function restoreProject(){} export async function frameSvg(){}` }));
   },
 }] });
@@ -39,6 +39,13 @@ try {
   await React.act(async () => root.render(React.createElement(MemoryRouter, { initialEntries: ['/dashboard'] }, React.createElement(Routes, null,
     React.createElement(Route, { path: '/dashboard', element: React.createElement(api.Dashboard) }),
     React.createElement(Route, { path: '/editor/:projectId', element: React.createElement(api.Editor) })))));
+  globalThis.actionShowExisting=true;
+  await React.act(async()=>{window.dispatchEvent(new win.Event('kinetic-projects-changed'));await new Promise(resolve=>setTimeout(resolve,10));});
+  await React.act(async()=>host.querySelector('.pd-preview').click());
+  assert.ok(host.querySelector('.ke-canvas-area'),'Open navigates before unresolved activity write');assert.equal(globalThis.actionOpenMetadata,true);
+  globalThis.actionShowExisting=false;
+  await React.act(async()=>[...host.querySelectorAll('a')].find(link=>link.textContent.trim()==='Workspace').click());
+  console.log('PASS Existing project opens immediately while cloud activity write remains pending');
   await React.act(async () => {
     const button = [...host.querySelectorAll('button')].find(button => button.textContent.includes('New project'));
     button.click(); button.click(); button.click();

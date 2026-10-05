@@ -18,7 +18,8 @@
     "test:storage": "node tests/storage-api.mjs",
     "test:runtime": "node --no-experimental-require-module tests/server-runtime.mjs",
     "test:project-actions": "node tests/project-actions-ui.mjs",
-    "test:vector": "node tests/vectorization.mjs"
+    "test:vector": "node tests/vectorization.mjs",
+    "test:png-svg": "node tests/png-svg-ui.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1145.0",

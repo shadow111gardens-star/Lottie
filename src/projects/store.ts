@@ -1,3 +1,4 @@
+import { sceneCategory, type ProjectCategory } from './category';
 import { collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, serverTimestamp, runTransaction, type DocumentData } from 'firebase/firestore';
 import type { User } from 'firebase/auth';
 import { db, firebaseError, getFirebaseAuth } from '../lib/firebase';
@@ -11,7 +12,7 @@ import { assertProjectActive, projectStopped, stopProject, resumeProject } from 
 export { sortProjects, editedLabel } from './project-order';
 export type Sort = 'activity' | 'edited' | 'created' | 'name-asc' | 'name-desc';
 export const PROJECTS_CHANGED = 'kinetic-projects-changed';
-export type Project = { id: string; scene: Scene; type: 'Animation' | 'SVG'; createdAt: number | null; editedAt: number | null; openedAt: number | null; preview?: string; hasContent?: boolean; status?: string };
+export type Project = { id: string; scene: Scene; type: 'Animation' | 'SVG'; category?: ProjectCategory; createdAt: number | null; editedAt: number | null; openedAt: number | null; preview?: string; hasContent?: boolean; status?: string };
 type Reference = { $r2: string; format: 'text' | 'dataUrl' };
 const loaded = new Map<string, { scene: Scene; revision: string | null }>();
 const queues = new Map<string, Promise<void>>();
@@ -113,13 +114,13 @@ export async function readProjects(): Promise<{ projects: Project[]; invalid: nu
     const scene = { ...initialScene(data.name), ...data.settings, name: data.name, layers: [] } as Scene;
     let preview: string | undefined;
     if (data.r2?.thumbnail) try { preview = await dataUrl(await assetBlob(user, item.id, data.r2.thumbnail)); } catch { /* Cards still open when a thumbnail is unavailable. */ }
-    return { id: item.id, scene, type: data.type, hasContent: data.layerCount > 0, preview, status: data.status, createdAt: timestamp(data.createdAt), editedAt: timestamp(data.updatedAt), openedAt: timestamp(data.openedAt) } as Project;
+    return { id: item.id, scene, type: data.type, category: data.category ?? (data.r2?.lottie ? 'Lottie' : data.type === 'Animation' ? 'Lottie' : 'SVG'), hasContent: data.layerCount > 0, preview, status: data.status, createdAt: timestamp(data.createdAt), editedAt: timestamp(data.updatedAt), openedAt: timestamp(data.openedAt) } as Project;
   }));
   assertOwner(user);
   return { projects: projects.filter((project): project is Project => !!project && !projectStopped(user.uid, project.id)), invalid };
 }
 function blankDocument(user: User, id: string, scene: Scene) {
-  return { projectId: id, ownerId: user.uid, name: scene.name, type: typeOf(scene), createdAt: serverTimestamp(), updatedAt: serverTimestamp(), frameCount: 0, duration: scene.duration, settings: { width: scene.width, height: scene.height, background: scene.background, clip: scene.clip, duration: scene.duration }, editorState: null, r2: {}, status: 'active', layerCount: 0 };
+  return { projectId: id, ownerId: user.uid, name: scene.name, type: typeOf(scene), category: sceneCategory(scene), createdAt: serverTimestamp(), updatedAt: serverTimestamp(), frameCount: 0, duration: scene.duration, settings: { width: scene.width, height: scene.height, background: scene.background, clip: scene.clip, duration: scene.duration }, editorState: null, r2: {}, status: 'active', layerCount: 0 };
 }
 async function ensureCreated(user: User, id: string): Promise<void> {
   const key = cacheKey(user, id), creation = creations.get(key);
@@ -230,7 +231,7 @@ export async function saveProject(id: string, source: Scene, ownerId?: string): 
       const document = await transaction.get(reference(user, id)); assertOwner(user); assertProjectActive(user.uid, id);
       if (!document.exists() || document.data().status !== 'active') throw new Error('This project is unavailable. Your local changes are preserved.');
       if ((document.data().editorState?.revision ?? null) !== base) throw new Error('This project changed in another session. Your unsaved draft is preserved; export it before reloading.');
-      transaction.update(reference(user, id), { name: source.name, type: typeOf(source), updatedAt: serverTimestamp(), duration: source.duration,
+      transaction.update(reference(user, id), { name: source.name, type: typeOf(source), category: sceneCategory(source), updatedAt: serverTimestamp(), duration: source.duration,
         frameCount: source.layers.reduce((count, layer) => count + (layer.media?.frames.length || 0), 0), layerCount: source.layers.filter(layer => !layer.sourceFrame).length,
         settings: { width: source.width, height: source.height, background: source.background, clip: source.clip, duration: source.duration }, editorState: empty ? { inline: JSON.parse(JSON.stringify(source)), revision } : { key: state, revision },
         r2: { project: state, thumbnail, source: manifest.filter(key => key.includes('/source/')), lottie: manifest.find(key => key.includes('/lottie/')) ?? null } });
@@ -245,8 +246,13 @@ export async function saveProject(id: string, source: Scene, ownerId?: string): 
   queues.set(key, pending);
   try { await pending; } finally { if (queues.get(key) === pending) queues.delete(key); }
 }
-export async function openProject(id: string) {
-  const scene = await loadProject(id), user = await currentOwner();
+export async function openProject(id: string, metadataOnly = false) {
+  if (metadataOnly) {
+    const owner = getFirebaseAuth().currentUser;
+    if (owner) { const key = cacheKey(owner, id); if (!creations.has(key)) loaded.delete(key); }
+  }
+  const user = await currentOwner();
+  const scene = metadataOnly ? undefined : await loadProject(id);
   assertProjectActive(user.uid, id);
   await updateDoc(reference(user, id), { openedAt: serverTimestamp() }); notify(); return scene;
 }
@@ -263,10 +269,12 @@ export async function renameProject(id: string, name: string) {
 }
 export async function duplicateProject(id: string) {
   const user = await currentOwner(), scene = await loadProject(id), nextId = `new-${uid()}`;
-  const names = new Set((await readProjects()).projects.map(project => project.scene.name));
+  const listing = await getDocs(collection(firestore(), 'users', user.uid, 'projects'));
+  assertOwner(user);
+  const names = new Set(listing.docs.map(project => project.data().name));
   const base = `${scene.name} copy`; let name = base, number = 2;
   while (names.has(name)) name = `${base} ${number++}`;
-  await setDoc(reference(user, nextId), { projectId: nextId, ownerId: user.uid, name, type: typeOf(scene), createdAt: serverTimestamp(), updatedAt: serverTimestamp(), frameCount: 0, duration: scene.duration, editorState: null, r2: {}, status: 'creating', layerCount: 0 });
+  await setDoc(reference(user, nextId), { projectId: nextId, ownerId: user.uid, name, type: typeOf(scene), category: sceneCategory(scene), createdAt: serverTimestamp(), updatedAt: serverTimestamp(), frameCount: 0, duration: scene.duration, editorState: null, r2: {}, status: 'creating', layerCount: 0 });
   try {
     await storageRequest(user, id, 'POST', undefined, JSON.stringify({ projectId: nextId }), '/copy');
     await updateDoc(reference(user, nextId), { status: 'active' });

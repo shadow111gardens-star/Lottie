@@ -13,7 +13,7 @@ const bundle=await build({stdin:{contents:'export {default as Dashboard} from ".
   build.onResolve({filter:/projects\/store$/},()=>({path:'store',namespace:'dashboard-test'}));
   build.onResolve({filter:/lib\/firebase$/},()=>({path:'firebase',namespace:'dashboard-test'}));
   build.onResolve({filter:/^firebase\/auth$/},()=>({path:'auth',namespace:'dashboard-test'}));
-  build.onLoad({filter:/.*/,namespace:'dashboard-test'},args=>({contents:args.path==='firebase'?'export const auth={currentUser:{uid:"preview-user"}};export function getFirebaseAuth(){return auth;}':args.path==='auth'?'export function onAuthStateChanged(auth, callback){queueMicrotask(()=>callback({uid:"preview-user"}));return ()=>{};}export async function signOut(){}':`export const PROJECTS_CHANGED='kinetic-projects-changed';export async function readProjects(){return {projects:globalThis.previewProjects,invalid:0};}export function sortProjects(projects){return projects;}export function editedLabel(){return 'Edited just now';}export function createBlankProject(){globalThis.blankCreates=(globalThis.blankCreates||0)+1;return {id:"instant-blank"};}export async function createProject(){}export async function deleteProject(){}export async function duplicateProject(){}export async function openProject(){}export async function renameProject(){}export async function restoreProject(){}`}));
+  build.onLoad({filter:/.*/,namespace:'dashboard-test'},args=>({contents:args.path==='firebase'?'export const auth={currentUser:{uid:"preview-user"}};export function getFirebaseAuth(){return auth;}':args.path==='auth'?'export function onAuthStateChanged(auth, callback){queueMicrotask(()=>callback({uid:"preview-user"}));return ()=>{};}export async function signOut(){}':`export const PROJECTS_CHANGED='kinetic-projects-changed';export async function readProjects(){return {projects:globalThis.previewProjects,invalid:0};}export function sortProjects(projects){return projects;}export function editedLabel(){return 'Edited just now';}export function createBlankProject(){globalThis.blankCreates=(globalThis.blankCreates||0)+1;return {id:"instant-blank"};}export async function createProject(){}export async function deleteProject(id){return globalThis.testDelete?.(id);}export async function duplicateProject(id){return globalThis.testDuplicate?.(id);}export async function openProject(){}export async function renameProject(id,name){return globalThis.testRename?.(id,name);}export async function restoreProject(){}`}));
  }
 }]});
 await writeFile(file,bundle.outputFiles[0].text);
@@ -33,6 +33,49 @@ try {
  const image=host.querySelector('[data-project-id="lottie"] img');
  assert.match(decodeURIComponent(image.src),/rgb\(255,0,0\)|#ff0000/i);
  assert.equal(document.querySelectorAll('body > div').length,1,'Offscreen renderers cleaned up');
+ const click=async button=>React.act(async()=>button.click());
+ await click([...host.querySelectorAll('nav button')].find(button=>button.textContent.includes('All projects')));
+ assert.ok(host.querySelector('.pd-all-projects'));
+ const search=host.querySelector('[aria-label="Search projects"]');
+ await React.act(async()=>{Object.getOwnPropertyDescriptor(win.HTMLInputElement.prototype,'value').set.call(search,'Native');search.dispatchEvent(new win.Event('input',{bubbles:true}));});
+ assert.equal(host.querySelectorAll('.pd-card').length,1);assert.ok(host.querySelector('[data-project-id="native"]'));
+ await click(host.querySelector('[aria-label="Clear search"]'));assert.equal(host.querySelectorAll('.pd-card').length,2);
+
+ assert.equal(host.querySelectorAll('.ap-types button').length,5);
+ const category=name=>[...host.querySelectorAll('.ap-types button')].find(button=>button.textContent===name);
+ await click(category('Lottie'));assert.equal(host.querySelectorAll('.pd-card').length,1);assert.ok(host.querySelector('[data-project-id="lottie"]'));
+ await click(category('SVG'));assert.equal(host.querySelectorAll('.pd-card').length,1);assert.ok(host.querySelector('[data-project-id="native"]'));
+ await click(category('Video'));assert.equal(host.querySelectorAll('.pd-card').length,0);assert.match(host.textContent,/No matching projects/);
+ await click(category('All'));assert.equal(host.querySelectorAll('.pd-card').length,2);
+ await click(host.querySelector('[aria-label="List view"]'));assert.ok(host.querySelector('.ap-list'));
+ await click(host.querySelector('[aria-label="Grid view"]'));assert.equal(host.querySelector('.ap-list'),null);
+ await click(host.querySelector('.ap-filter'));assert.ok(host.querySelector('.ap-filter-panel'));
+ await click(host.querySelector('.ap-filter-panel input'));assert.equal(host.querySelector('.ap-filter-panel input').checked,true);
+ await click(host.querySelector('.ap-filter-panel button'));assert.equal(host.querySelector('.ap-filter-panel input').checked,false);
+ window.dispatchEvent(new win.KeyboardEvent('keydown',{key:'k',ctrlKey:true,bubbles:true}));assert.equal(document.activeElement,host.querySelector('[aria-label="Search projects"]'));
+ console.log('PASS All projects layout, type filtering, empty filter state, grid/list, content filter/reset and Ctrl K search');
+ const menu=async id=>click(host.querySelector(`[data-project-id="${id}"] button[aria-haspopup="menu"]`));
+ const menuAction=name=>[...host.querySelectorAll('[role="menuitem"]')].find(button=>button.textContent===name);
+ let resolveRename;globalThis.testRename=(id,name)=>new Promise(resolve=>{resolveRename=()=>{globalThis.previewProjects=globalThis.previewProjects.map(project=>project.id===id?{...project,scene:{...project.scene,name}}:project);resolve();};});
+ await menu('native');await click(menuAction('Rename'));
+ await React.act(async()=>{const field=host.querySelector('[aria-label="Project name"]');Object.getOwnPropertyDescriptor(win.HTMLInputElement.prototype,'value').set.call(field,'Renamed fast');field.dispatchEvent(new win.Event('input',{bubbles:true}));});
+ await React.act(async()=>host.querySelector('.pd-modal form').dispatchEvent(new win.Event('submit',{bubbles:true,cancelable:true})));
+ assert.equal(host.querySelector('.pd-modal'),null);assert.match(host.querySelector('[data-project-id="native"]').textContent,/Renamed fast/);assert.match(host.textContent,/Saving name/);
+ await React.act(async()=>{window.dispatchEvent(new win.Event('kinetic-projects-changed'));await new Promise(resolve=>setTimeout(resolve,10));});assert.match(host.querySelector('[data-project-id="native"]').textContent,/Renamed fast/,'Stale refresh cannot replace pending rename');
+ await React.act(async()=>resolveRename());
+ let resolveCopy;let duplicateCalls=0;globalThis.testDuplicate=id=>{duplicateCalls++;return new Promise(resolve=>{resolveCopy=()=>{const original=globalThis.previewProjects.find(project=>project.id===id);globalThis.previewProjects.push({...original,id:'copied-fast',scene:{...original.scene,name:original.scene.name+' copy'}});resolve('copied-fast');};});};
+ await menu('native');await click(menuAction('Duplicate'));assert.ok(host.querySelector('[data-project-id="pending-copy-native"]'));assert.match(host.textContent,/Saving copy/);assert.equal(duplicateCalls,1);
+ assert.equal(host.querySelector('[data-project-id="native"] button[aria-haspopup="menu"]').disabled,true);
+ await React.act(async()=>resolveCopy());assert.ok(host.querySelector('[data-project-id="copied-fast"]'));assert.equal(host.querySelector('[data-project-id="pending-copy-native"]'),null);
+ let resolveDelete;globalThis.testDelete=id=>new Promise(resolve=>{resolveDelete=()=>{globalThis.previewProjects=globalThis.previewProjects.filter(project=>project.id!==id);resolve();};});
+ await menu('copied-fast');await click(menuAction('Delete'));await React.act(async()=>host.querySelector('.pd-modal form').dispatchEvent(new win.Event('submit',{bubbles:true,cancelable:true})));
+ assert.equal(host.querySelector('[data-project-id="copied-fast"]'),null,'Delete removes card before network finishes');assert.equal(host.querySelector('.pd-modal'),null);
+ await React.act(async()=>{window.dispatchEvent(new win.Event('kinetic-projects-changed'));await new Promise(resolve=>setTimeout(resolve,10));});assert.equal(host.querySelector('[data-project-id="copied-fast"]'),null,'Pending delete stays hidden across stale refresh');
+ await React.act(async()=>resolveDelete());assert.match(host.textContent,/Undo/);
+ globalThis.testDuplicate=async()=>{throw new Error('Copy failed');};await menu('native');await click(menuAction('Duplicate'));assert.equal(host.querySelector('[data-project-id="pending-copy-native"]'),null);assert.match(host.querySelector('[role="alert"]').textContent,/Copy failed/);
+ globalThis.testRename=async()=>{throw new Error('Rename failed');};await menu('native');await click(menuAction('Rename'));await React.act(async()=>{const field=host.querySelector('[aria-label="Project name"]');Object.getOwnPropertyDescriptor(win.HTMLInputElement.prototype,'value').set.call(field,'Rejected name');field.dispatchEvent(new win.Event('input',{bubbles:true}));});await React.act(async()=>host.querySelector('.pd-modal form').dispatchEvent(new win.Event('submit',{bubbles:true,cancelable:true})));assert.match(host.querySelector('[data-project-id="native"]').textContent,/Renamed fast/);assert.doesNotMatch(host.querySelector('[data-project-id="native"]').textContent,/Rejected name/);
+ console.log('PASS Immediate rename/copy/delete under deferred network, stale-refresh protection, duplicate guard, rename/copy failure rollback and Undo availability');
+
  await React.act(async()=>{ const button=[...host.querySelectorAll('button')].find(button=>button.textContent.includes('New project')); button.click(); button.click(); button.click(); });
  assert.equal(globalThis.blankCreates,1,'Rapid clicks create only one project');
  console.log('PASS Instant local New Project handler rejects rapid duplicate clicks');
