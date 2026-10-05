@@ -1071,7 +1071,7 @@ function PrivacyPage() {
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
           <Link to="/" className="flex items-center gap-2 text-xl font-black text-slate-900">
             <Sparkles className="h-5 w-5 text-indigo-600" />
-            <span>Anim8</span>
+            <span className="font-display">vekto</span>
           </Link>
           <Link
             to="/"
@@ -1131,7 +1131,7 @@ function PrivacyPage() {
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-6 px-6 md:flex-row">
           <Link to="/" className="flex items-center gap-2 text-2xl font-black text-slate-900">
             <Sparkles className="h-6 w-6 text-indigo-600" />
-            <span className="font-display">Anim8</span>
+            <span className="font-display">vekto</span>
           </Link>
           <p className="text-sm font-medium text-slate-500">Motion design, made direct.</p>
           <nav className="flex flex-wrap items-center justify-center gap-6 md:gap-8">
@@ -1182,7 +1182,7 @@ function TermsPage() {
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
           <Link to="/" className="flex items-center gap-2 text-xl font-black text-slate-900">
             <Sparkles className="h-5 w-5 text-indigo-600" />
-            <span>Anim8</span>
+            <span className="font-display">vekto</span>
           </Link>
           <Link
             to="/"
@@ -1242,7 +1242,7 @@ function TermsPage() {
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-6 px-6 md:flex-row">
           <Link to="/" className="flex items-center gap-2 text-2xl font-black text-slate-900">
             <Sparkles className="h-6 w-6 text-indigo-600" />
-            <span className="font-display">Anim8</span>
+            <span className="font-display">vekto</span>
           </Link>
           <p className="text-sm font-medium text-slate-500">Motion design, made direct.</p>
           <nav className="flex flex-wrap items-center justify-center gap-6 md:gap-8">
