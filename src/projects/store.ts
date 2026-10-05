@@ -13,7 +13,10 @@ export { sortProjects, editedLabel } from './project-order';
 export type Sort = 'activity' | 'edited' | 'created' | 'name-asc' | 'name-desc';
 export const PROJECTS_CHANGED = 'kinetic-projects-changed';
 export type ProjectAsset = { name: string; key?: string; kind: 'Image' | 'Video' | 'SVG' | 'Lottie' | 'File' };
-export type Project = { assets?: ProjectAsset[]; id: string; scene: Scene; type: 'Animation' | 'SVG'; category?: ProjectCategory; createdAt: number | null; editedAt: number | null; openedAt: number | null; preview?: string; hasContent?: boolean; status?: string };
+export type Project = { assets?: ProjectAsset[]; libraryOnly?: boolean; id: string; scene: Scene; type: 'Animation' | 'SVG'; category?: ProjectCategory; createdAt: number | null; editedAt: number | null; openedAt: number | null; preview?: string; hasContent?: boolean; status?: string };
+function assetKind(name: string): ProjectAsset['kind'] {
+  return /\.(png|jpe?g|webp|gif|avif|bmp|tiff?|heic)$/i.test(name) ? 'Image' : /\.(mp4|webm|mov|mkv|avi|m4v)$/i.test(name) ? 'Video' : /\.svg$/i.test(name) ? 'SVG' : /\.json$/i.test(name) ? 'Lottie' : 'File';
+}
 type Reference = { $r2: string; format: 'text' | 'dataUrl' };
 const loaded = new Map<string, { scene: Scene; revision: string | null }>();
 const queues = new Map<string, Promise<void>>();
@@ -126,15 +129,12 @@ export async function readProjects(onPreview?: (project: Project) => void): Prom
     if (data.ownerId !== user.uid || data.projectId !== item.id || typeof data.name !== 'string') { invalid++; continue; }
     const scene = { ...initialScene(data.name), ...data.settings, name: data.name, layers: [] } as Scene;
     const old = previous?.projects.find(project => project.id === item.id);
-    const project: Project = { id: item.id, scene, type: data.type, category: data.category ?? (data.r2?.lottie ? 'Lottie' : data.type === 'Animation' ? 'Lottie' : 'SVG'), hasContent: data.layerCount > 0, preview: data.r2?.thumbnail ? old?.preview : undefined, status: data.status, createdAt: timestamp(data.createdAt), editedAt: timestamp(data.updatedAt), openedAt: timestamp(data.openedAt) };
+    const project: Project = { id: item.id, scene, type: data.type, category: data.category ?? (data.r2?.lottie ? 'Lottie' : data.type === 'Animation' ? 'Lottie' : 'SVG'), hasContent: data.layerCount > 0, preview: data.r2?.thumbnail ? old?.preview : undefined, status: data.status, libraryOnly: data.libraryOnly === true, createdAt: timestamp(data.createdAt), editedAt: timestamp(data.updatedAt), openedAt: timestamp(data.openedAt) };
     const sourceKeys: string[] = Array.isArray(data.r2?.source) ? data.r2.source : [];
-    project.assets = sourceKeys.filter(key => typeof key === 'string').map(key => {
-      const name = key.split('/').pop() || 'Source file';
-      const kind: ProjectAsset['kind'] = /\.(png|jpe?g|webp|gif)$/i.test(name) ? 'Image' : /\.(mp4|webm|mov)$/i.test(name) ? 'Video' : /\.svg$/i.test(name) ? 'SVG' : 'File';
-      return { name, key, kind };
-    });
-    if (typeof data.r2?.lottie === 'string') project.assets.push({ name: `${data.name}.json`, key: data.r2.lottie, kind: 'Lottie' });
-    if (typeof data.r2?.svg === 'string') project.assets.push({ name: `${data.name}.svg`, key: data.r2.svg, kind: 'SVG' });
+    const legacyAssets = sourceKeys.filter(key => typeof key === 'string').map(key => ({ name: key.split('/').pop() || 'Source file', key, kind: assetKind(key) }));
+    project.assets = Array.isArray(data.assets) ? data.assets.filter((asset: ProjectAsset) => typeof asset?.key === 'string' && typeof asset.name === 'string') : legacyAssets;
+    if (typeof data.r2?.lottie === 'string' && !project.assets!.some(asset => asset.kind === 'Lottie')) project.assets!.push({ name: `${data.name}.json`, key: data.r2.lottie, kind: 'Lottie' });
+    if (typeof data.r2?.svg === 'string' && !project.assets!.some(asset => asset.kind === 'SVG')) project.assets!.push({ name: `${data.name}.svg`, key: data.r2.svg, kind: 'SVG' });
     projects.push(project);
     if (data.r2?.thumbnail) thumbnails.push({ project, key: data.r2.thumbnail });
   }
@@ -206,7 +206,7 @@ export function createBlankProject(name = 'Untitled scene') {
   creations.get(key)!.timer = setTimeout(() => { void ensureCreated(user, id).catch(() => {}); }, 0);
   return { id, owner: user.uid, scene };
 }
-export async function createProject(name = 'Untitled scene', source?: Scene): Promise<string> {
+export async function createProject(name = 'Untitled scene', source?: Scene, libraryOnly = false): Promise<string> {
   const user = await currentOwner();
   if (!source) {
     const project = createBlankProject(name);
@@ -214,9 +214,25 @@ export async function createProject(name = 'Untitled scene', source?: Scene): Pr
   }
   const id = `new-${uid()}`, scene = structuredClone(validateScene(source));
   scene.name = name.trim() || 'Untitled scene';
-  await setDoc(reference(user, id), blankDocument(user, id, scene));
+  await setDoc(reference(user, id), { ...blankDocument(user, id, scene), libraryOnly });
   assertOwner(user); loaded.set(cacheKey(user, id), { scene, revision: null });
   await saveProject(id, scene, user.uid); notify(); return id;
+}
+export async function uploadLibraryFile(file: File): Promise<string> {
+  if (!file.size) throw new Error('Please choose a non-empty file.');
+  if (file.size > 100 * 1024 * 1024) throw new Error('Upload files up to 100 MB.');
+  const scene = { ...initialScene(file.name), layers: [], files: { source: [{ name: file.name, data: await dataUrl(file) }] } };
+  return createProject(file.name, scene, true);
+}
+export async function readUploadedAssets(id: string): Promise<ProjectAsset[]> {
+  const user = await currentOwner();
+  const response = await storageRequest(user, id, 'GET', undefined, undefined, '/uploads');
+  const data = await response.json(); assertOwner(user);
+  const root = prefix(user, id);
+  return (Array.isArray(data.keys) ? data.keys : []).filter((key: unknown): key is string => typeof key === 'string' && key.startsWith(root)).map((key: string) => {
+    const name = key.split('/').pop() || 'Uploaded file';
+    return { key, name, kind: assetKind(name) };
+  });
 }
 export async function loadProject(id: string): Promise<Scene> {
   const user = await currentOwner(), key = cacheKey(user, id);
@@ -266,11 +282,14 @@ export async function saveProject(id: string, source: Scene, ownerId?: string): 
       thumbnail = (await putAsset(user, id, 'thumbnails', 'preview.svg', new Blob([svg], { type: 'image/svg+xml' }))).$r2;
     } catch { /* A preview failure cannot discard an otherwise valid editor snapshot. */ }
     const manifest = [...collectReferences(data)];
+    const originals: ProjectAsset[] = (data.files?.source ?? []).map((file: { name: string; data: Reference }) => ({ name: file.name, key: file.data.$r2, kind: assetKind(file.name) }));
     await runTransaction(firestore(), async transaction => {
       const document = await transaction.get(reference(user, id)); assertOwner(user); assertProjectActive(user.uid, id);
       if (!document.exists() || document.data().status !== 'active') throw new Error('This project is unavailable. Your local changes are preserved.');
       if ((document.data().editorState?.revision ?? null) !== base) throw new Error('This project changed in another session. Your unsaved draft is preserved; export it before reloading.');
-      transaction.update(reference(user, id), { name: source.name, type: typeOf(source), category: sceneCategory(source), updatedAt: serverTimestamp(), duration: source.duration,
+      const previousAssets: ProjectAsset[] = Array.isArray(document.data().assets) ? document.data().assets : (document.data().r2?.source ?? []).map((key: string) => ({ key, name: key.split('/').pop() || 'Source file', kind: assetKind(key) }));
+      const assets = [...new Map([...previousAssets, ...originals].map(asset => [asset.key, asset])).values()];
+      transaction.update(reference(user, id), { assets, name: source.name, type: typeOf(source), category: sceneCategory(source), updatedAt: serverTimestamp(), duration: source.duration,
         frameCount: source.layers.reduce((count, layer) => count + (layer.media?.frames.length || 0), 0), layerCount: source.layers.filter(layer => !layer.sourceFrame).length,
         settings: { width: source.width, height: source.height, background: source.background, clip: source.clip, duration: source.duration }, editorState: empty ? { inline: JSON.parse(JSON.stringify(source)), revision } : { key: state, revision },
         r2: { project: state, thumbnail, svg: manifest.find(key => key.endsWith('/export.svg')) ?? null, source: manifest.filter(key => key.includes('/source/')), lottie: manifest.find(key => key.includes('/lottie/')) ?? null } });
@@ -366,6 +385,7 @@ export async function deleteProject(id: string) {
         const blob = await read(document.editorState.key); files.set(document.editorState.key, blob);
         for (const asset of collectReferences(JSON.parse(await blob.text()))) files.set(asset, await read(asset));
       }
+      for (const asset of document.assets ?? []) if (typeof asset.key === 'string' && !files.has(asset.key)) files.set(asset.key, await read(asset.key));
       if (document.r2?.thumbnail) files.set(document.r2.thumbnail, await read(document.r2.thumbnail));
       const scene = cached || (document.editorState?.inline ? validateScene(document.editorState.inline) : document.editorState?.key ? validateScene(await hydrateForUndo()) : { ...initialScene(document.name), ...document.settings, layers: [] });
       deleted.set(key, { scene, files, document });

@@ -24,6 +24,13 @@ try {
   assert.equal((await request('project-one', 'GET', 'frames/001.svg', undefined, 'bob')).status, 404);
   assert.equal((await request('project-one', 'DELETE', undefined, undefined, 'bob')).status, 200);
   assert.ok(fixture.objects.has('users/alice/projects/project-one/frames/001.svg'), 'An idempotent delete cannot access another owner’s files');
+  await request('project-one', 'PUT', 'source/hash/photo.png', 'photo');
+  await request('project-one', 'PUT', 'source/hash/logo.svg', svg);
+  await request('project-one', 'PUT', 'project/hash/editor.json', '{}');
+  const uploads = await request('project-one/uploads');
+  assert.equal(uploads.status,200);
+  assert.deepEqual((await uploads.json()).keys.sort(),['users/alice/projects/project-one/source/hash/logo.svg','users/alice/projects/project-one/source/hash/photo.png']);
+  assert.equal((await request('project-one/uploads','GET',undefined,undefined,'bob')).status,404,'Listing uploads cannot expose another owner');
   const copied = await request('project-one/copy', 'POST', undefined, JSON.stringify({ projectId: 'project-copy', uid: 'bob' }));
   assert.equal(copied.status, 200); assert.equal(await (await request('project-copy', 'GET', 'frames/001.svg')).text(), svg);
   assert.equal((await request('project-one/copy', 'POST', undefined, JSON.stringify({ projectId: 'project-two' }))).status, 404);

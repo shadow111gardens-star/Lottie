@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Upload, Download, ArrowUpRight, FileCode2, ImagePlus, ArrowRight, Sparkles, X, Minus, Plus, Maximize, Minimize, Zap, Pencil, Layers, LoaderCircle } from 'lucide-react';
 import './png-to-svg.css';
 import { vectorizePng } from '../editor/pngToSvg';
-import { createProject } from '../projects/store';
+import { createProject, uploadLibraryFile } from '../projects/store';
 import { dataUrl } from './storage';
 
 type Input = { file: File; image: string; width: number; height: number };
@@ -43,7 +43,9 @@ export default function PngToSvg() {
       });
       if (dimensions.width > 8192 || dimensions.height > 8192 || dimensions.width * dimensions.height > 32 * 1024 * 1024) throw new Error('Choose an image up to 8192 pixels per side and 32 megapixels.');
       if (version !== generation.current) return;
-      setInput({ file, image, ...dimensions }); setResult(null); setProgress(''); setZoom(100);
+      setInput({ file, image, ...dimensions }); setResult(null); setProgress('Saving image to My assets...'); setZoom(100);
+      await uploadLibraryFile(file);
+      if (version === generation.current) setProgress('Image saved to My assets.');
     } catch (error) { if (version === generation.current) setError(error instanceof Error ? error.message : 'Could not read PNG.'); }
   };
   const convert = async () => {

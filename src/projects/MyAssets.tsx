@@ -1,19 +1,72 @@
-import { useState } from 'react';
-import { Download, FolderOpen, Search, FileCode2, Film, Image, ArrowUpRight } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Download, FolderOpen, Search, FileCode2, Film, Image, ArrowUpRight, Upload } from 'lucide-react';
 import { exportSceneSvg } from '../editor/io';
-import { loadProject, type Project } from '../projects/store';
+import { loadProject, uploadLibraryFile, readUploadedAssets, type Project, type ProjectAsset } from '../projects/store';
 import { assetBlob, currentOwner, assertOwner } from './storage';
+
+function AssetPreview({ asset, project }: { asset: ProjectAsset; project: Project }) {
+  const [preview, setPreview] = useState<string>();
+  useEffect(() => {
+    let cancelled = false, url: string | undefined;
+    setPreview(undefined);
+    if (!asset.key || !['Image', 'SVG'].includes(asset.kind)) return;
+    void (async () => {
+      const user = await currentOwner();
+      const blob = await assetBlob(user, project.id, asset.key!);
+      assertOwner(user);
+      if (cancelled) return;
+      url = URL.createObjectURL(blob); setPreview(url);
+    })().catch(() => { /* Download remains available when preview decoding fails. */ });
+    return () => { cancelled = true; if (url) URL.revokeObjectURL(url); };
+  }, [asset.key, asset.kind, project.id]);
+  return preview ? <img loading="lazy" src={preview} alt={asset.name} /> : !asset.key && project.preview ? <img loading="lazy" src={project.preview} alt={asset.name} /> : asset.kind === 'Video' ? <Film size={36} /> : asset.kind === 'Image' ? <Image size={36} /> : <FileCode2 size={36} />;
+}
 
 export default function MyAssets({ projects, open, error }: { projects: Project[]; open: (id: string) => void; error: string }) {
   const [search, setSearch] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
   const [downloadError, setDownloadError] = useState('');
+  const picker = useRef<HTMLInputElement>(null);
+  const uploading = useRef(false);
+  const [uploadingFiles, setUploadingFiles] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState('');
+  const [storedAssets, setStoredAssets] = useState<Record<string, ProjectAsset[]>>({});
+  const [listError, setListError] = useState('');
+  const projectIds = JSON.stringify(projects.map(project => project.id).sort());
+  useEffect(() => {
+    let cancelled = false;
+    setListError(''); setStoredAssets({});
+    const ids: string[] = JSON.parse(projectIds);
+    for (const id of ids) void readUploadedAssets(id).then(files => {
+      if (!cancelled) setStoredAssets(items => ({ ...items, [id]: files }));
+    }).catch(() => { if (!cancelled) setListError('Some older uploads could not be loaded. Reopen My assets to retry.'); });
+    return () => { cancelled = true; };
+  }, [projectIds]);
+  const upload = async (files: File[]) => {
+    if (uploading.current || !files.length) return;
+    uploading.current = true; setUploadingFiles(true); setDownloadError(''); setUploadStatus('');
+    const failures: string[] = []; let saved = 0;
+    try {
+      for (const file of files) {
+        try { await uploadLibraryFile(file); saved++; }
+        catch (cause) { failures.push(`${file.name}: ${cause instanceof Error ? cause.message : 'Upload failed.'}`); }
+      }
+      setUploadStatus(`${saved} ${saved === 1 ? 'file' : 'files'} saved to My assets.`);
+      setDownloadError(failures.join(' '));
+    } finally { uploading.current = false; setUploadingFiles(false); }
+  };
   const assets = projects.flatMap(project => {
-    const files = [...(project.assets ?? [])];
+    const files = [...new Map([...(storedAssets[project.id] ?? []), ...(project.assets ?? [])].map(file => [file.key ?? file.name, file])).values()];
     if ((project.hasContent ?? project.scene.layers.length > 0) && project.type === 'SVG' && !files.some(file => file.kind === 'SVG')) files.push({ name: `${project.scene.name}.svg`, kind: 'SVG' as const });
     return files.map(file => ({ ...file, project, id: `${project.id}:${file.key ?? file.name}` }));
   });
-  const filtered = assets.filter(asset => `${asset.name} ${asset.project.scene.name} ${asset.kind}`.toLocaleLowerCase().includes(search.toLocaleLowerCase()));
+  const unique = new Map<string, typeof assets[number]>();
+  for (const asset of assets) {
+    const identity = asset.key ? `${asset.kind}:${asset.name}:${asset.key.split('/').at(-2)}` : asset.id;
+    const previous = unique.get(identity);
+    if (!previous || (previous.project.libraryOnly && !asset.project.libraryOnly)) unique.set(identity, asset);
+  }
+  const filtered = [...unique.values()].filter(asset => `${asset.name} ${asset.project.scene.name} ${asset.kind}`.toLocaleLowerCase().includes(search.toLocaleLowerCase()));
   const download = async (asset: typeof assets[number]) => {
     if (busy) return;
     setBusy(asset.id); setDownloadError('');
@@ -28,12 +81,14 @@ export default function MyAssets({ projects, open, error }: { projects: Project[
     finally { setBusy(null); }
   };
   return <section className="ma-page">
-    <header className="pd-header"><div><div className="ap-eyebrow">LIBRARY</div><h1>My assets</h1><p>Your saved images, videos, SVGs and Lottie files, all in one place.</p></div></header>
+    <header className="pd-header"><div><div className="ap-eyebrow">LIBRARY</div><h1>My assets</h1><p>All your uploaded photos, SVGs, videos and files.</p></div><button className="pd-button pd-primary" disabled={uploadingFiles} onClick={() => picker.current?.click()}><Upload size={16} />{uploadingFiles ? 'Uploading…' : 'Upload files'}</button></header>
+    <input ref={picker} hidden multiple type="file" aria-label="Upload asset files" disabled={uploadingFiles} onChange={event => { const files = Array.from(event.currentTarget.files ?? []); event.currentTarget.value = ''; void upload(files); }} />
+    {uploadStatus && <p className="ma-upload-status" role="status">{uploadStatus}</p>}
     <div className="ma-toolbar"><div className="pd-search"><Search size={16} /><input aria-label="Search assets" placeholder="Search your assets" value={search} onChange={event => setSearch(event.target.value)} /></div><span>{filtered.length} {filtered.length === 1 ? 'asset' : 'assets'}</span></div>
-    {(error || downloadError) && <div className="pd-warning" role="alert">{downloadError || error}</div>}
+    {(error || downloadError || listError) && <div className="pd-warning" role="alert">{downloadError || error || listError}</div>}
     {filtered.length ? <div className="pd-grid">{filtered.map(asset => <article className="pd-card ma-card" key={asset.id}>
-      <button className="pd-preview" aria-label={`Open project for ${asset.name}`} onClick={() => open(asset.project.id)}>{asset.project.preview ? <img loading="lazy" src={asset.project.preview} alt={`Project preview for ${asset.name}`} /> : asset.kind === 'Video' ? <Film size={36} /> : asset.kind === 'Image' ? <Image size={36} /> : <FileCode2 size={36} />}</button>
-      <div className="pd-card-details"><strong title={asset.name}>{asset.name}</strong><p>{asset.kind} · {asset.project.scene.name}</p><div className="ma-actions"><button className="pd-button" disabled={busy !== null} aria-label={`Download ${asset.name}`} onClick={() => void download(asset)}><Download size={14} />{busy === asset.id ? 'Downloading…' : 'Download'}</button><button className="pd-icon" aria-label={`Edit project for ${asset.name}`} onClick={() => open(asset.project.id)}><ArrowUpRight size={16} /></button></div></div>
+      {asset.project.libraryOnly ? <div className="pd-preview"><AssetPreview asset={asset} project={asset.project} /></div> : <button className="pd-preview" aria-label={`Open project for ${asset.name}`} onClick={() => open(asset.project.id)}><AssetPreview asset={asset} project={asset.project} /></button>}
+      <div className="pd-card-details"><strong title={asset.name}>{asset.name}</strong><p>{asset.kind}{!asset.project.libraryOnly && ` · ${asset.project.scene.name}`}</p><div className="ma-actions"><button className="pd-button" disabled={busy !== null} aria-label={`Download ${asset.name}`} onClick={() => void download(asset)}><Download size={14} />{busy === asset.id ? 'Downloading…' : 'Download'}</button>{!asset.project.libraryOnly && <button className="pd-icon" aria-label={`Edit project for ${asset.name}`} onClick={() => open(asset.project.id)}><ArrowUpRight size={16} /></button>}</div></div>
     </article>)}</div> : !error && <div className="pd-empty"><div><FolderOpen size={30} /></div><h2>{search ? 'No matching assets' : 'Your asset library starts here'}</h2><p>{search ? 'Try a different file or project name.' : 'Import files or save a project to see its assets here.'}</p>{search && <button className="pd-button" onClick={() => setSearch('')}>Clear search</button>}</div>}
   </section>;
 }

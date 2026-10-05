@@ -20,7 +20,7 @@ export function localProject(id){return globalThis.actionProject?.id===id?global
 export async function loadProject(){throw new Error('New Project must never wait for a loader');}
 export async function saveProject(){globalThis.actionSaves++; return new Promise(()=>{});} export async function preserveDraft(){}
 export async function readProjects(){return {projects:globalThis.actionShowExisting?[{...globalThis.actionProject,type:"SVG",createdAt:null,editedAt:null,openedAt:null}]:[],invalid:0};} export function sortProjects(items){return items;}
-export function editedLabel(){return '';} export async function createProject(){} export async function deleteProject(){}
+export function editedLabel(){return '';} export async function readUploadedAssets(){return [];}export async function uploadLibraryFile(file){globalThis.libraryUploads=(globalThis.libraryUploads||[]).concat(file.name);return "uploaded-file";}export async function createProject(){} export async function deleteProject(){}
 export async function duplicateProject(){} export async function openProject(id,metadataOnly){globalThis.actionOpenMetadata=metadataOnly;return new Promise(()=>{});} export async function renameProject(){}
 export async function restoreProject(){} export async function frameSvg(){}` }));
   },

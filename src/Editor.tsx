@@ -1783,7 +1783,7 @@ export function Workspace({ projectId, initial, ownerId }: { projectId: string; 
                   ? importLottie(raw, file.name)
                   : null;
               const data = result?.scene ?? validateScene(raw);
-              if (result) data.files = { ...data.files, lottie: text };
+              data.files = { ...data.files, ...(result ? { lottie: text } : {}), source: [...(data.files?.source ?? []), { name: file.name, data: await dataUrl(file) }] };
               setImportReport(result?.warnings ?? []);
               setMessage(
                 result
@@ -1800,6 +1800,7 @@ export function Workspace({ projectId, initial, ownerId }: { projectId: string; 
               commit({
                 ...scene,
                 layers: [...layers.reverse(), ...scene.layers],
+                files: { ...scene.files, source: [...(scene.files?.source ?? []), { name: file.name, data: await dataUrl(file) }] },
               });
               select(layers[0].id);
               setMessage(

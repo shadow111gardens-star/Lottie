@@ -93,6 +93,14 @@ export function createStorageApi(options = {}) {
     } while (continuation);
     return keys;
   }
+  router.get('/:projectId/uploads', async (req, res, next) => {
+    try {
+      const prefix = projectPrefix(req.identity.uid, req.params.projectId);
+      await authorizeProject(req.identity.uid, req.params.projectId, req.idToken, false);
+      const keys = (await list(prefix)).filter(key => key.startsWith(`${prefix}source/`) || /^project\/[^/]+\/export\.svg$/.test(key.slice(prefix.length)) || /^lottie\/[^/]+\/animation\.json$/.test(key.slice(prefix.length)));
+      res.json({ keys });
+    } catch (error) { next(error); }
+  });
   router.get('/:projectId', async (req, res, next) => {
     try {
       const key = objectKey(req.identity.uid, req.params.projectId, req.query.path);

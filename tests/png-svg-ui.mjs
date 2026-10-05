@@ -17,7 +17,7 @@ const bundle=await build({stdin:{contents:'export { default as Workspace } from 
  build.onResolve({filter:/projects\/store$/},()=>({path:'store',namespace:'test'}));
  build.onResolve({filter:/^firebase\/auth$/},()=>({path:'firebase-auth',namespace:'test'}));
  build.onResolve({filter:/lib\/firebase$/},()=>({path:'auth',namespace:'test'}));
- build.onLoad({filter:/.*/,namespace:'test'},args=>({contents:args.path==='firebase-auth'?'export function onAuthStateChanged(auth,callback){queueMicrotask(()=>callback(auth.currentUser));return ()=>{}}':args.path==='auth'?'export function getFirebaseAuth(){return {currentUser:{uid:"test-user"}}}':'export async function createProject(name,scene){globalThis.createdScene=scene; return "new-png-test";} export function localProject(id){return {id,owner:"test-user",scene:globalThis.createdScene};} export async function loadProject(){return globalThis.createdScene;} export async function saveProject(id,scene){globalThis.savedScene=scene;} export async function preserveDraft(){} export async function frameSvg(){}'}));
+ build.onLoad({filter:/.*/,namespace:'test'},args=>({contents:args.path==='firebase-auth'?'export function onAuthStateChanged(auth,callback){queueMicrotask(()=>callback(auth.currentUser));return ()=>{}}':args.path==='auth'?'export function getFirebaseAuth(){return {currentUser:{uid:"test-user"}}}':'export async function uploadLibraryFile(file){globalThis.libraryUploads=(globalThis.libraryUploads||[]).concat(file.name);return "uploaded-file";}export async function createProject(name,scene){globalThis.createdScene=scene; return "new-png-test";} export function localProject(id){return {id,owner:"test-user",scene:globalThis.createdScene};} export async function loadProject(){return globalThis.createdScene;} export async function saveProject(id,scene){globalThis.savedScene=scene;} export async function preserveDraft(){} export async function frameSvg(){}'}));
 }}]});
 await writeFile(output,bundle.outputFiles[0].text);
 const React=await import('react');const {createRoot}=await import('react-dom/client');const {MemoryRouter,Routes,Route}=await import('react-router-dom');
@@ -31,6 +31,7 @@ try {
  const file=new win.File([PNG.sync.write({width:24,height:24,data:pixels})],'colors.png',{type:'image/png'});
  const input=host.querySelector('input');Object.defineProperty(input,'files',{value:[file],configurable:true});
  await React.act(async()=>{input.dispatchEvent(new win.Event('change',{bubbles:true}));await new Promise(r=>setTimeout(r,60));});
+ assert.deepEqual(globalThis.libraryUploads,['colors.png'],'PNG is saved to library before conversion or editor navigation');
  assert.ok(host.querySelector('img[alt="Uploaded PNG"]'));assert.equal(button('Convert to SVG').disabled,false);
  await React.act(async()=>button('Convert to SVG').click());
  for(let attempt=0;attempt<100&&!host.querySelector('img[alt="Generated SVG"]');attempt++)await React.act(async()=>{await new Promise(r=>setTimeout(r,30));});
