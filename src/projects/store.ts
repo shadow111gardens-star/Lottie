@@ -104,21 +104,51 @@ async function hydrate(user: User, id: string, value: any): Promise<any> {
   }
   return decode(value);
 }
-export async function readProjects(): Promise<{ projects: Project[]; invalid: number }> {
+type ProjectListing = { projects: Project[]; invalid: number };
+const listings = new Map<string, ProjectListing>();
+const thumbnailCache = new Map<string, Promise<string>>();
+export function cachedProjects(): ProjectListing {
+  const user = getFirebaseAuth().currentUser;
+  const listing = user ? listings.get(user.uid) : undefined;
+  return { projects: user ? (listing?.projects ?? []).filter(project => !projectStopped(user.uid, project.id)) : [], invalid: listing?.invalid ?? 0 };
+}
+export async function readProjects(onPreview?: (project: Project) => void): Promise<ProjectListing> {
   const user = await currentOwner();
   const snapshot = await getDocs(collection(firestore(), 'users', user.uid, 'projects'));
   assertOwner(user); let invalid = 0;
-  const projects = await Promise.all(snapshot.docs.filter(item => !projectStopped(user.uid, item.id) && !['creating', 'deleting'].includes(item.data().status)).map(async item => {
+  const previous = listings.get(user.uid);
+  const thumbnails: { project: Project; key: string }[] = [];
+  const projects: Project[] = [];
+  for (const item of snapshot.docs) {
     const data = item.data();
-    if (data.ownerId !== user.uid || data.projectId !== item.id || typeof data.name !== 'string') { invalid++; return null; }
+    if (projectStopped(user.uid, item.id) || ['creating', 'deleting'].includes(data.status)) continue;
+    if (data.ownerId !== user.uid || data.projectId !== item.id || typeof data.name !== 'string') { invalid++; continue; }
     const scene = { ...initialScene(data.name), ...data.settings, name: data.name, layers: [] } as Scene;
-    let preview: string | undefined;
-    if (data.r2?.thumbnail) try { preview = await dataUrl(await assetBlob(user, item.id, data.r2.thumbnail)); } catch { /* Cards still open when a thumbnail is unavailable. */ }
-    return { id: item.id, scene, type: data.type, category: data.category ?? (data.r2?.lottie ? 'Lottie' : data.type === 'Animation' ? 'Lottie' : 'SVG'), hasContent: data.layerCount > 0, preview, status: data.status, createdAt: timestamp(data.createdAt), editedAt: timestamp(data.updatedAt), openedAt: timestamp(data.openedAt) } as Project;
-  }));
-  assertOwner(user);
-  return { projects: projects.filter((project): project is Project => !!project && !projectStopped(user.uid, project.id)), invalid };
+    const old = previous?.projects.find(project => project.id === item.id);
+    const project: Project = { id: item.id, scene, type: data.type, category: data.category ?? (data.r2?.lottie ? 'Lottie' : data.type === 'Animation' ? 'Lottie' : 'SVG'), hasContent: data.layerCount > 0, preview: data.r2?.thumbnail ? old?.preview : undefined, status: data.status, createdAt: timestamp(data.createdAt), editedAt: timestamp(data.updatedAt), openedAt: timestamp(data.openedAt) };
+    projects.push(project);
+    if (data.r2?.thumbnail) thumbnails.push({ project, key: data.r2.thumbnail });
+  }
+  const listing = { projects, invalid };
+  listings.set(user.uid, listing);
+  // Metadata is ready immediately; each preview updates its card independently.
+  for (const { project, key } of thumbnails) {
+    const thumbnailKey = `${user.uid}:${project.id}:${key}`;
+    let request = thumbnailCache.get(thumbnailKey);
+    if (!request) {
+      request = assetBlob(user, project.id, key).then(dataUrl);
+      thumbnailCache.set(thumbnailKey, request);
+      void request.catch(() => { thumbnailCache.delete(thumbnailKey); });
+    }
+    void request.then(preview => {
+      if (getFirebaseAuth().currentUser?.uid !== user.uid || projectStopped(user.uid, project.id) || listings.get(user.uid) !== listing) return;
+      project.preview = preview;
+      onPreview?.({ ...project, preview });
+    }).catch(() => { /* Cards still open when a thumbnail is unavailable. */ });
+  }
+  return listing;
 }
+
 function blankDocument(user: User, id: string, scene: Scene) {
   return { projectId: id, ownerId: user.uid, name: scene.name, type: typeOf(scene), category: sceneCategory(scene), createdAt: serverTimestamp(), updatedAt: serverTimestamp(), frameCount: 0, duration: scene.duration, settings: { width: scene.width, height: scene.height, background: scene.background, clip: scene.clip, duration: scene.duration }, editorState: null, r2: {}, status: 'active', layerCount: 0 };
 }

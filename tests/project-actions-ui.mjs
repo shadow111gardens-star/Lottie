@@ -14,7 +14,7 @@ const bundle = await build({ stdin: { contents: 'export { default as Dashboard }
     build.onLoad({ filter: /.*/, namespace: 'actions-test' }, args => ({ contents: args.path === 'firebase'
       ? 'export const auth={currentUser:{uid:"action-owner"}}; export function getFirebaseAuth(){return auth;}'
       : args.path === 'auth' ? 'export function onAuthStateChanged(auth,callback){queueMicrotask(()=>callback(auth.currentUser)); return ()=>{};} export async function signOut(){}'
-        : `export const PROJECTS_CHANGED='kinetic-projects-changed';
+        : `export const PROJECTS_CHANGED='kinetic-projects-changed'; export function cachedProjects(){return {projects:[],invalid:0};}
 export function createBlankProject(){globalThis.actionCreates++; return globalThis.actionProject;}
 export function localProject(id){return globalThis.actionProject?.id===id?globalThis.actionProject:null;}
 export async function loadProject(){throw new Error('New Project must never wait for a loader');}
