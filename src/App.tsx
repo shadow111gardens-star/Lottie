@@ -986,7 +986,7 @@ function Footer() {
         </Link>
 
         <p className="text-sm font-medium text-slate-500">
-          @build by abhay solanki
+          Vekto © 2026. All rights reserved.
         </p>
 
         <nav className="flex flex-wrap items-center justify-center gap-6 md:gap-8">
