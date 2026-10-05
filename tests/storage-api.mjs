@@ -5,7 +5,7 @@ import { MemoryS3 } from './storage-fixture.mjs';
 const fixture = new MemoryS3();
 const projects = new Set(['alice/project-one', 'alice/project-copy', 'bob/project-two']);
 const app = express();
-app.use('/api/storage', createStorageApi({ s3: fixture, bucket: 'test-bucket', verify: async token => {
+app.use('/api/storage', createStorageApi({ requirePaid: async () => ({ plan: 'pro', active: true, lifetime: false }), s3: fixture, bucket: 'test-bucket', verify: async token => {
   if (!['alice', 'bob'].includes(token)) throw new Error('Invalid token.'); return { uid: token };
 }, authorizeProject: async (uid, id) => { if (!projects.has(`${uid}/${id}`)) throw Object.assign(new Error('Project unavailable.'), { status: 404 }); } }));
 const server = app.listen(0, '127.0.0.1'); await new Promise(resolve => server.once('listening', resolve));

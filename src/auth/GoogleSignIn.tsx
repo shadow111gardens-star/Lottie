@@ -3,7 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { getFirebaseAuth } from '../lib/firebase';
 
-const SignInContext = createContext<{ busy: boolean; signIn: () => void } | null>(null);
+const SignInContext = createContext<{ busy: boolean; signIn: (afterSignIn?: () => Promise<void>) => void } | null>(null);
+export function useGoogleSignIn() {
+  const context = useContext(SignInContext);
+  if (!context) throw new Error('GoogleSignInProvider is required.');
+  return context;
+}
 
 export function googleSignInError(error: unknown): string | null {
   const code = (error as { code?: string } | null)?.code;
@@ -23,7 +28,7 @@ export function GoogleSignInProvider({ children }: { children: ReactNode }) {
   const pending = useRef(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const signIn = () => {
+  const signIn = (afterSignIn?: () => Promise<void>) => {
     if (pending.current) return;
     setError(null);
     pending.current = true;
@@ -33,7 +38,7 @@ export function GoogleSignInProvider({ children }: { children: ReactNode }) {
     // Invoke directly from the click to retain the browser's popup permission.
     try {
       void signInWithPopup(getFirebaseAuth(), provider)
-      .then(() => navigate('/dashboard', { replace: true }))
+      .then(() => afterSignIn ? afterSignIn() : navigate('/dashboard', { replace: true }))
       .catch((cause: unknown) => setError(googleSignInError(cause)))
       .finally(() => { pending.current = false; setBusy(false); });
     } catch (cause) {
@@ -51,5 +56,5 @@ export function GoogleSignInProvider({ children }: { children: ReactNode }) {
 export function GoogleSignInButton({ children, className }: { children: ReactNode; className: string }) {
   const signIn = useContext(SignInContext);
   if (!signIn) throw new Error('GoogleSignInButton requires GoogleSignInProvider.');
-  return <button type="button" className={className} onClick={signIn.signIn} disabled={signIn.busy} aria-busy={signIn.busy} style={signIn.busy ? { opacity: .65, cursor: 'wait' } : undefined}>{children}</button>;
+  return <button type="button" className={className} onClick={() => signIn.signIn()} disabled={signIn.busy} aria-busy={signIn.busy} style={signIn.busy ? { opacity: .65, cursor: 'wait' } : undefined}>{children}</button>;
 }

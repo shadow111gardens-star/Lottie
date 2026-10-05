@@ -6,7 +6,9 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 import Lenis from "lenis";
 import Dashboard from "./Dashboard";
 import Editor from "./Editor";
-import { GoogleSignInButton, GoogleSignInProvider } from './auth/GoogleSignIn';
+import { GoogleSignInButton, GoogleSignInProvider, useGoogleSignIn } from './auth/GoogleSignIn';
+import { createCheckout, type PaidPlan } from './lib/billing';
+import { getFirebaseAuth } from './lib/firebase';
 import {
   Sparkles,
   ArrowRight,
@@ -32,6 +34,7 @@ gsap.registerPlugin(ScrollTrigger);
 
 /* ───────── Types ───────── */
 interface Plan {
+  id: 'pro' | 'lifetime';
   name: string;
   price: string;
   period: string;
@@ -102,6 +105,7 @@ const pricingFeatures = [
 
 const pricingPlans: Plan[] = [
   {
+    id: 'pro',
     name: "Pro",
     price: "$5",
     period: "/ month",
@@ -112,6 +116,7 @@ const pricingPlans: Plan[] = [
     description: "Pay month to month while you're working on a project.",
   },
   {
+    id: 'lifetime',
     name: "Lifetime",
     price: "$29",
     period: "one-time",
@@ -836,6 +841,22 @@ function UseCases() {
 
 /* ───────── Pricing ───────── */
 function Pricing() {
+  const login = useGoogleSignIn();
+  const [pendingPlan, setPendingPlan] = useState<PaidPlan | null>(null);
+  const [checkoutError, setCheckoutError] = useState('');
+  const pending = useRef(false);
+  const begin = async (plan: PaidPlan) => {
+    if (pending.current) return;
+    pending.current = true; setPendingPlan(plan); setCheckoutError('');
+    try { await createCheckout(plan); }
+    catch (cause) { setCheckoutError(cause instanceof Error ? cause.message : 'Checkout could not be created.'); }
+    finally { pending.current = false; setPendingPlan(null); }
+  };
+  const checkout = (plan: PaidPlan) => {
+    setCheckoutError('');
+    try { if (getFirebaseAuth().currentUser) void begin(plan); else login.signIn(() => begin(plan)); }
+    catch (cause) { setCheckoutError(cause instanceof Error ? cause.message : 'Sign in to continue.'); }
+  };
   return (
     <section id="pricing" className="relative z-10 bg-slate-50 px-6 py-32">
       <div className="mx-auto max-w-5xl">
@@ -871,17 +892,19 @@ function Pricing() {
                 {plan.popular && <p className="flex items-center gap-2 rounded-xl bg-violet-50 px-4 py-3 text-sm font-bold text-violet-600"><InfinityIcon className="h-5 w-5 shrink-0" />Pay once. Use forever.</p>}
               </div>
               <button
+                type="button" onClick={() => checkout(plan.id)} disabled={!!pendingPlan || login.busy} aria-busy={pendingPlan === plan.id || login.busy}
                 className={`mt-auto flex w-full items-center justify-center gap-3 rounded-2xl px-3 py-4 text-sm font-black transition-transform hover:scale-[1.02] ${
                   plan.popular
                     ? "bg-slate-900 text-white"
                     : "bg-violet-600 text-white shadow-lg shadow-violet-600/20"
                 }`}
               >
-                {plan.cta}<ArrowRight className="h-5 w-5 shrink-0" />
+                {pendingPlan === plan.id ? 'Opening checkout…' : plan.cta}<ArrowRight className="h-5 w-5 shrink-0" />
               </button>
             </div>
           ))}
         </div>
+        {checkoutError && <p role="alert" className="mt-6 text-center text-sm font-medium text-red-600">{checkoutError}</p>}
       </div>
     </section>
   );

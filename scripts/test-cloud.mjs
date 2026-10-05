@@ -36,7 +36,8 @@ if (process.platform === 'win32') {
   // socket directory makes OpenJDK's pipe listener fall back to TCP loopback.
   environment.JAVA_TOOL_OPTIONS = `${environment.JAVA_TOOL_OPTIONS || ''} -Djdk.net.unixdomain.tmpdir=${path.join(cache, 'unavailable-socket-directory')}`;
 }
-const args = ['emulators:exec', '--only', 'firestore,auth', '--project', 'demo-svgforge', `"${process.execPath}" tests/cloud-flow.mjs`];
+const testFile = process.argv.includes('--payments') ? 'tests/payments.mjs' : 'tests/cloud-flow.mjs';
+const args = ['emulators:exec', '--only', 'firestore,auth', '--project', 'demo-svgforge', `"${process.execPath}" ${testFile}`];
 const cli = process.platform === 'win32' ? path.join(process.env.APPDATA, 'npm/node_modules/firebase-tools/lib/bin/firebase.js') : null;
 const child = spawn(cli ? process.execPath : 'firebase', cli ? [cli, ...args] : args, { env: environment, stdio: 'inherit', windowsHide: true });
 child.on('exit', code => { process.exitCode = code ?? 1; });

@@ -54,6 +54,6 @@ try {
   await render('missing'); api.setAuth(null); await click(host.querySelector('button'));
   assert.match(host.querySelector('[role="alert"]').textContent, /configuration is missing/);
   const source = await readFile('src/App.tsx', 'utf8');
-  assert.equal((source.match(/<GoogleSignInButton className=/g) ?? []).length, 3);
-  console.log('PASS All three buttons: Google provider, pending state, duplicate-click protection, success navigation, invalid config and popup cancellation');
+  assert.equal((source.match(/<GoogleSignInButton className=/g) ?? []).length, 4);
+  console.log('PASS Google provider, pending state, duplicate-click protection, success navigation, invalid config and popup cancellation; desktop/mobile sign-in entry points');
 } finally { await React.act(async () => root.unmount()); await unlink(file); await win.happyDOM.abort(); delete globalThis.authPopupTest; }

@@ -15,6 +15,7 @@ import MyAssets from './projects/MyAssets';
 import './projects/sidebar.css';
 import { getFirebaseAuth } from './lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
+import { useEntitlement } from './lib/billing';
 
 type Action = 'open' | 'rename' | 'duplicate' | 'delete';
 function ProjectCard({ project, menuOpen, setMenu, action, now, showCategory, pending }: { pending?: string; showCategory?: boolean; project: Project; menuOpen: boolean; setMenu: (id: string | null) => void; action: (action: Action, project: Project) => void; now: number }) {
@@ -80,6 +81,7 @@ function ProjectDialog({ dialog, close, submit }: { dialog: DialogState; close: 
 }
 
 export default function Dashboard() {
+  const billing = useEntitlement();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'all' | 'png-svg' | 'assets'>('all');
   const [search, setSearch] = useState('');
@@ -197,7 +199,7 @@ export default function Dashboard() {
   const source = projects.filter(project => !project.libraryOnly);
   const filtered = sortProjects(source.filter(p => `${p.scene.name} ${p.type}`.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()) && (activeTab !== 'all' || ((category === 'All' || projectCategory(p) === category) && (!contentOnly || (p.hasContent ?? p.scene.layers.some(layer => layer.visible)))))), sort);
   return <div className={`pd-dashboard ${activeTab !== 'png-svg' ? 'pd-all-projects' : ''}`}>
-    <aside className="pd-sidebar"><div className="pd-account"><div className="pd-avatar">{accountName.charAt(0).toUpperCase()}</div><div><strong>{accountName}</strong><span>Personal workspace</span></div></div><div className="pd-nav-label">WORKSPACE</div>
+    <aside className="pd-sidebar"><div className="pd-account"><div className="pd-avatar">{accountName.charAt(0).toUpperCase()}</div><div><strong>{accountName}</strong><span aria-live="polite">{billing.status || 'Personal workspace'}</span></div></div><div className="pd-nav-label">WORKSPACE</div>
       <nav aria-label="Project navigation"><button className={activeTab === 'all' ? 'is-selected' : ''} onClick={() => { setActiveTab('all'); setMenu(null); }}><LayoutGrid size={18} />All projects<span>{source.length}</span></button><button className={activeTab === 'png-svg' ? 'is-selected' : ''} onClick={() => { setActiveTab('png-svg'); setMenu(null); }}><Image size={18} />PNG → SVG<span className="pd-nav-new">New</span></button></nav><div className="pd-nav-label pd-library-label">LIBRARY</div><nav aria-label="Library navigation"><button aria-current={activeTab === 'assets' ? 'page' : undefined} className={activeTab === 'assets' ? 'is-selected' : ''} onClick={() => { setActiveTab('assets'); setMenu(null); }}><FolderOpen size={18} />My assets</button></nav><div className="pd-sidebar-bottom"><section className="pd-upgrade"><h2><Crown size={17} />Upgrade for more</h2><p>Explore plans for more storage and creative possibilities.</p><a href="/#pricing">Upgrade plan<ArrowUpRight size={14} /></a></section>
       <button type="button" className="pd-logout" onClick={() => void logout()} disabled={loggingOut} aria-busy={loggingOut}><LogOut size={20} strokeWidth={2.2} /><span>{loggingOut ? 'Logging out…' : 'Log out'}</span></button>
       </div>

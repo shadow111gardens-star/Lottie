@@ -3,8 +3,16 @@
   "framework": "vite",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "functions": { "api/storage.mjs": { "maxDuration": 300, "excludeFiles": "{public,dist,tests}/**" } },
+  "functions": {
+    "api/storage.mjs": { "maxDuration": 300, "excludeFiles": "{public,dist,tests}/**" },
+    "api/checkout.mjs": { "maxDuration": 60, "excludeFiles": "{public,dist,tests}/**" },
+    "api/entitlement.mjs": { "maxDuration": 60, "excludeFiles": "{public,dist,tests}/**" },
+    "api/webhooks/dodo.mjs": { "maxDuration": 60, "excludeFiles": "{public,dist,tests}/**" }
+  },
   "routes": [
+    { "src": "/api/checkout", "dest": "/api/checkout" },
+    { "src": "/api/entitlement", "dest": "/api/entitlement" },
+    { "src": "/api/webhooks/dodo", "dest": "/api/webhooks/dodo" },
     { "src": "/api/storage/([A-Za-z0-9_-]+(?:/(?:copy|uploads))?)", "dest": "/api/storage?__storageRoute=$1" },
     { "src": "/api/storage(?:/.*)?", "dest": "/api/storage" },
     { "handle": "filesystem" },

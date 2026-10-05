@@ -40,7 +40,7 @@ if (process.env.SVGFORGE_TEST_REAL_R2 === '1') {
     req.url = `/api/storage?${url.searchParams}`;
     vercelStorage(req, res, next);
   });
-} else application.use('/api/storage', createStorageApi({ s3: fixture, bucket: 'test-bucket' }));
+} else application.use('/api/storage', createStorageApi({ requirePaid: async () => ({ plan: 'pro', active: true, lifetime: false }), s3: fixture, bucket: 'test-bucket' }));
 const server = application.listen(0, '127.0.0.1');
 await new Promise(resolve => server.once('listening', resolve));
 const origin = `http://127.0.0.1:${server.address().port}`;
