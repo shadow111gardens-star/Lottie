@@ -90,7 +90,7 @@ const exportCards: ExportCard[] = [
 ];
 
 const testimonials = [
-  { quote: "We stopped outsourcing motion. Anim8 is our entire animation department now.", author: "Priya Patel", role: "Founder, CraftStudio" },
+  { quote: "We stopped outsourcing motion. vekto is our entire animation department now.", author: "Priya Patel", role: "Founder, CraftStudio" },
   { quote: "The scroll-driven demos alone increased our demo requests by 3x.", author: "Rahul Shah", role: "Product Lead, NexusPay" },
   { quote: "It feels like the future of design tooling.", author: "Maya Desai", role: "Design Director, Orbit" },
 ];
@@ -128,7 +128,7 @@ const pricingPlans: Plan[] = [
 ];
 
 const faqs: FAQItem[] = [
-  { question: "Is coding required?", answer: "No. Anim8 is built for designers, marketers, and product teams. If you can describe motion, you can ship it." },
+  { question: "Is coding required?", answer: "No. vekto is built for designers, marketers, and product teams. If you can describe motion, you can ship it." },
   { question: "What formats export?", answer: "Lottie JSON, SVG, CSS, MP4, WebM, GIF, and React components." },
   { question: "Can I use it commercially?", answer: "Yes. All plans include commercial usage rights. Enterprise includes indemnification." },
   { question: "Is there a trial?", answer: "Scale plan is free for 14 days, no card required." },
@@ -351,7 +351,7 @@ function Navbar() {
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
           <a href="#" className="flex items-center gap-2 text-xl font-black text-slate-900">
             <Sparkles className="h-5 w-5 text-indigo-600" />
-            <span className="font-display">Anim8</span>
+            <span className="font-display">vekto</span>
           </a>
           <div className="hidden items-center gap-8 md:flex">
             {navLinks.map((l) => (
@@ -435,7 +435,7 @@ function Hero() {
         </div>
 
         <p className="hero-sub mx-auto mt-8 max-w-xl text-base font-medium leading-relaxed text-slate-500 md:text-lg">
-          Anim8 is the AI-native animation platform for product teams who refuse to ship boring software.
+          vekto is the AI-native animation platform for product teams who refuse to ship boring software.
         </p>
 
         <div className="hero-cta mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
@@ -500,7 +500,7 @@ function Manifesto() {
   }, []);
 
   const copy =
-    "The best products don't just function. They feel alive. Every scroll, every hover, every loading state is a chance to build trust, spark delight, and move users closer to action. Anim8 gives your team the power to ship that feeling — at scale.";
+    "The best products don't just function. They feel alive. Every scroll, every hover, every loading state is a chance to build trust, spark delight, and move users closer to action. vekto gives your team the power to ship that feeling — at scale.";
 
   return (
     <section id="manifesto" ref={sectionRef} className="relative z-10 flex min-h-screen items-center justify-center bg-white px-6">
@@ -973,7 +973,7 @@ function Footer() {
       <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-6 px-6 md:flex-row">
         <Link to="/" className="flex items-center gap-2 text-2xl font-black text-slate-900">
           <Sparkles className="h-6 w-6 text-indigo-600" />
-          <span className="font-display">Anim8</span>
+          <span className="font-display">vekto</span>
         </Link>
 
         <p className="text-sm font-medium text-slate-500">
