@@ -220,3 +220,12 @@ body {
   #capabilities > div:last-child { min-height: 520px; }
   #capabilities > div:last-child > div { min-height: 440px; }
 }
+
+@keyframes pricing-soon-pop {
+  0%, 70%, 100% { transform: translateY(0) scale(1); box-shadow: 0 2px 8px #7c3aed18; }
+  78% { transform: translateY(-3px) scale(1.06); box-shadow: 0 5px 16px #7c3aed30; }
+  86% { transform: translateY(0) scale(1); }
+  92% { transform: translateY(-1px) scale(1.03); }
+}
+.pricing-coming-soon { vertical-align: middle; white-space: nowrap; animation: pricing-soon-pop 4s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .pricing-coming-soon { animation: none; } }

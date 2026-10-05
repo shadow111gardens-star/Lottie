@@ -30,6 +30,8 @@ import {
   Eye,
   FileVideo,
   FileCode,
+  Crown,
+  Infinity as InfinityIcon,
 } from "lucide-react";
 
 gsap.registerPlugin(ScrollTrigger);
@@ -39,7 +41,7 @@ interface Plan {
   name: string;
   price: string;
   period: string;
-  features: string[];
+  features: { label: string; comingSoon?: boolean }[];
   cta: string;
   popular: boolean;
   badge: string;
@@ -96,34 +98,34 @@ const testimonials = [
 ];
 
 const pricingFeatures = [
-  "Unlimited image + video vectorization",
-  "Animate with your AI via MCP + CLI",
-  "Keyframes, spring bounce & text animation",
-  "Camera motion & character rigging",
-  "Editable SVG & Figma Motion imports",
-  "MP4, SVG & Lottie exports",
+  { label: "Unlimited image + video vectorization" },
+  { label: "Animate with your AI via MCP + CLI", comingSoon: true },
+  { label: "Keyframes, spring bounce & text animation" },
+  { label: "Camera motion & character rigging" },
+  { label: "Editable SVG" },
+  { label: "SVG & Lottie exports" },
 ];
 
 const pricingPlans: Plan[] = [
   {
-    name: "Pro Monthly",
-    price: "$9",
-    period: "USD / month",
+    name: "Pro",
+    price: "$5",
+    period: "/ month",
     features: pricingFeatures,
-    cta: "Subscribe for $9/mo",
+    cta: "Subscribe for $5/mo",
     popular: false,
-    badge: "Cancel anytime",
-    description: "All of Pro, one month at a time. Keep your rate while you stay subscribed.",
+    badge: "",
+    description: "For creators who want flexible access.",
   },
   {
-    name: "Founding Lifetime",
-    price: "$79",
-    period: "USD, once",
+    name: "Lifetime",
+    price: "$29",
+    period: "one-time",
     features: pricingFeatures,
-    cta: "Get lifetime access",
+    cta: "Get Lifetime for $29",
     popular: true,
-    badge: "First 100 purchases",
-    description: "One payment. More room to make things move. No subscription renewal.",
+    badge: "Best value",
+    description: "For creators who want Vekto forever.",
   },
 ];
 
@@ -853,42 +855,38 @@ function Pricing() {
           {pricingPlans.map((plan) => (
             <div
               key={plan.name}
-              className="flex flex-col rounded-[2.5rem] border border-slate-200 bg-white p-8 transition-all duration-300 hover:border-indigo-200 hover:shadow-xl hover:shadow-slate-900/5 md:p-10"
+              className={`pricing-plan flex min-w-0 flex-col rounded-[2.5rem] border bg-white p-8 transition-all duration-300 hover:shadow-xl hover:shadow-slate-900/5 md:p-10 ${plan.popular ? "border-violet-400 shadow-lg shadow-violet-500/10 hover:border-violet-500" : "border-slate-200 hover:border-indigo-200"}`}
             >
-              <span className="w-fit rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">
-                {plan.badge}
-              </span>
-
-              <h3 className="mt-6 font-display text-2xl font-black text-slate-900 md:text-3xl">
-                {plan.name}
-              </h3>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h3 className="font-display text-2xl font-black text-slate-900 md:text-3xl">{plan.name}</h3>
+                {plan.badge && <span className="inline-flex items-center gap-2 rounded-full bg-violet-100 px-3 py-2 text-[10px] font-black uppercase tracking-wide text-violet-700"><Crown className="h-4 w-4 fill-current" />{plan.badge}</span>}
+              </div>
+              <p className="mt-2 text-base font-medium leading-relaxed text-slate-500">{plan.description}</p>
 
               <div className="mt-4 flex items-baseline gap-2">
                 <span className="font-display text-6xl font-black text-slate-900">{plan.price}</span>
                 <span className="text-base font-bold text-slate-500">{plan.period}</span>
               </div>
 
-              <p className="mt-4 text-base font-medium leading-relaxed text-slate-500">
-                {plan.description}
-              </p>
-
               <ul className="mt-8 space-y-4">
                 {plan.features.map((f) => (
-                  <li key={f} className="flex items-start gap-3 text-sm font-bold text-slate-700">
-                    <Check className="mt-0.5 h-5 w-5 shrink-0 text-indigo-600" />
-                    {f}
+                  <li key={f.label} className="flex items-start gap-3 text-sm font-bold text-slate-700">
+                    <Check className="mt-0.5 h-5 w-5 shrink-0 rounded-full bg-violet-600 p-1 text-white" />
+                    <span className="min-w-0">{f.label}{f.comingSoon && <span className="pricing-coming-soon ml-2 inline-flex items-center gap-1.5 rounded-full border border-violet-200 bg-violet-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-violet-700"><Sparkles className="h-3 w-3" />Coming soon</span>}</span>
                   </li>
                 ))}
               </ul>
-
+              <div className="mt-6 mb-4">
+                {plan.popular && <p className="flex items-center gap-2 rounded-xl bg-violet-50 px-4 py-3 text-sm font-bold text-violet-600"><InfinityIcon className="h-5 w-5 shrink-0" />Pay once. Use forever.</p>}
+              </div>
               <button
-                className={`mt-auto w-full rounded-2xl py-4 text-sm font-black transition-transform hover:scale-[1.02] ${
+                className={`mt-auto flex w-full items-center justify-center gap-3 rounded-2xl px-3 py-4 text-sm font-black transition-transform hover:scale-[1.02] ${
                   plan.popular
-                    ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/20"
-                    : "bg-slate-900 text-white"
+                    ? "bg-slate-900 text-white"
+                    : "bg-violet-600 text-white shadow-lg shadow-violet-600/20"
                 }`}
               >
-                {plan.cta}
+                {plan.cta}<ArrowRight className="h-5 w-5 shrink-0" />
               </button>
             </div>
           ))}
