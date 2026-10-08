@@ -22,7 +22,8 @@ const result = await build({
 try {
   await writeFile(output, result.outputFiles[0].text);
   globalThis.localStorage = { getItem: () => null };
-  globalThis.window = { location: { search: "" } };
+  // SSR does not dispatch browser events, but imported storage modules register listeners.
+  globalThis.window = { location: { search: "" }, addEventListener() {}, removeEventListener() {} };
   const { Workspace } = await import(pathToFileURL(output));
   const model = await bundleModel({ entryPoints: ['src/editor/model.ts'], bundle: true, platform: 'node', format: 'esm', write: false });
   const { initialScene } = await import('data:text/javascript;base64,' + Buffer.from(model.outputFiles[0].text).toString('base64'));

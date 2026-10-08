@@ -6,6 +6,7 @@
   "scripts": {
     "predev": "node scripts/prepare-media.mjs",
     "prebuild": "node scripts/prepare-media.mjs",
+    "postbuild": "node scripts/prerender-about.mjs",
     "dev": "vite",
     "build": "vite build",
     "typecheck": "tsc --noEmit",
@@ -14,7 +15,8 @@
     "test:payments": "node tests/payments.mjs && node tests/billing-ui.mjs && node tests/paid-access.mjs",
     "test:payments:emulator": "node scripts/test-cloud.mjs --payments",
     "check:payments": "node scripts/check-payments.mjs",
-    "test": "node tests/editor.mjs && node tests/lottie.mjs && node tests/render.mjs && node tests/interactions.mjs && node tests/dashboard-preview.mjs && node tests/media.mjs && node tests/media-ui.mjs",
+    "test": "node tests/editor.mjs && node tests/lottie.mjs && node tests/render.mjs && node tests/interactions.mjs && node tests/dashboard-preview.mjs && node tests/media.mjs && node tests/media-ui.mjs && node tests/about.mjs",
+    "test:about": "node tests/about.mjs",
     "preview": "vite preview",
     "start": "node server/index.mjs",
     "test:cloud": "node scripts/test-cloud.mjs",
