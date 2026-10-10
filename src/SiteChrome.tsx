@@ -126,7 +126,7 @@ export function Footer({ about = false }: { about?: boolean }) {
         </Link>
 
         <p className="text-sm font-medium text-slate-500">
-          Vekto © 2026. All rights reserved.
+          Vekto © 2026. All rights reserved | Made with Claude AI
         </p>
 
         <nav aria-label="Footer navigation" className="flex flex-wrap items-center justify-center gap-6 md:gap-8">
