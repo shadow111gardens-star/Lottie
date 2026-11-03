@@ -11,7 +11,7 @@ const bundle=await build({stdin:{contents:'export {default as Animator} from "./
  builder.onResolve({filter:/lib\/firebase$/},()=>({path:'firebase',namespace:'ai-ui'}));
  builder.onResolve({filter:/projects\/store$/},()=>({path:'store',namespace:'ai-ui'}));
  builder.onResolve({filter:/^\.\/ai-logo-input$/},()=>({path:'logo',namespace:'ai-ui'}));
- builder.onLoad({filter:/.*/,namespace:'ai-ui'},args=>({contents:args.path==='firebase'?'export function getFirebaseAuth(){return {currentUser:globalThis.aiUser};}':args.path==='store'?'export async function createProject(name,scene){globalThis.aiSaves=(globalThis.aiSaves||0)+1;globalThis.aiSaved={name,scene};return "new-ai-project";}':'export async function prepareAnimatorLogo(file,progress){progress("Preparing logo");return {name:file.name,source:"data:image/png;base64,test",preview:"data:image/png;base64,test",scene:globalThis.aiLogoScene,traced:false};}'}));
+ builder.onLoad({filter:/.*/,namespace:'ai-ui'},args=>({contents:args.path==='firebase'?'export function getFirebaseAuth(){return {currentUser:globalThis.aiUser};}':args.path==='store'?'export async function createProject(name,scene){globalThis.aiSaves=(globalThis.aiSaves||0)+1;globalThis.aiSaved={name,scene};return "new-ai-project";}':'export async function prepareAnimatorLogo(file,progress){progress("Preparing logo");if(globalThis.aiLogoFailure)throw new Error("This logo could not be decoded.");return {name:file.name,source:"data:image/png;base64,test",preview:"data:image/png;base64,test",scene:globalThis.aiLogoScene,traced:false};}'}));
 }}]});await writeFile(file,bundle.outputFiles[0].text);
 const React=await import('react');const{createRoot}=await import('react-dom/client');const{MemoryRouter,Routes,Route}=await import('react-router-dom');
 const host=document.createElement('div');document.body.append(host);const root=createRoot(host);
@@ -28,6 +28,11 @@ try{
  await React.act(async()=>root.render(React.createElement(MemoryRouter,{initialEntries:['/dashboard']},React.createElement(Routes,null,React.createElement(Route,{path:'/dashboard',element:React.createElement(api.Animator)}),React.createElement(Route,{path:'/editor/:id',element:React.createElement('div',{id:'ai-editor'},'Editor project')})))));
  assert.equal(button('Generate animation').disabled,true);
  const upload=host.querySelector('[aria-label="Upload logo"]');Object.defineProperty(upload,'files',{value:[new win.File(['logo'],'brand.png',{type:'image/png'})],configurable:true});
+ globalThis.aiLogoFailure=true;
+ await React.act(async()=>{upload.dispatchEvent(new win.Event('change',{bubbles:true}));await new Promise(r=>setTimeout(r,10));});
+ assert.equal(host.querySelector('.ai-upload-feedback [role="alert"]')?.textContent,'This logo could not be decoded.','Upload errors appear next to the file picker');
+ assert.equal(button('Generate animation').disabled,true,'A failed upload never enables generation');
+ globalThis.aiLogoFailure=false;
  await React.act(async()=>{upload.dispatchEvent(new win.Event('change',{bubbles:true}));await new Promise(r=>setTimeout(r,10));});
  assert.ok(host.querySelector('img[alt="Prepared logo"]'));assert.equal(globalThis.aiSaved,undefined,'Uploading never consumes a project trial');
  const key='test-only-user-ai-key';await text(host.querySelector('[aria-label="Your AI API key"]'),key);await text(host.querySelector('textarea'),'Make a soft logo bounce.');
