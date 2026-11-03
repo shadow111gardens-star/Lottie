@@ -34,7 +34,7 @@ win.document.createElement = tag => {
 
 const output = new URL(`./.ai-logo-upload-${process.pid}.mjs`, import.meta.url);
 const bundle = await build({
-  stdin: { contents: 'export {prepareAnimatorLogo} from "./src/projects/ai-logo-input";export {animateLogo} from "./src/editor/aiAnimator";', resolveDir: process.cwd() }, bundle: true, platform: 'node', format: 'esm', packages: 'external', write: false,
+  stdin: { contents: 'export {prepareAnimatorLogo} from "./src/projects/ai-logo-input";export {animateLogo} from "./src/editor/aiAnimator";export {exportSceneSvg} from "./src/editor/io";export {exportLottie} from "./src/editor/lottie";', resolveDir: process.cwd() }, bundle: true, platform: 'node', format: 'esm', packages: 'external', write: false,
   define: { 'import.meta.env.BASE_URL': JSON.stringify('/') },
   plugins: [{ name: 'upload-test-storage', setup(builder) {
     builder.onResolve({ filter: /^\.\/storage$/ }, () => ({ path: 'storage', namespace: 'upload-test' }));
@@ -74,7 +74,10 @@ try {
   const animatedScene=animated.animateLogo(detailed.scene,{title:'Dense logo',description:'Subtle logo motion',effect:'fade',direction:'up',duration:3,intensity:0.5,stagger:0,loop:false,background:'transparent'});
   assert.equal(animatedScene.layers.length,1,'The flattened image logo remains animatable');
   assert.ok(animatedScene.layers[0].tracks.opacity?.length);
-  console.log('PASS logo upload pipeline: PNG/SVG import, worker tracing, dense path compaction, detailed-image fallback and animation');
+  assert.match(animated.exportSceneSvg(animatedScene,0,true),/<image href="data:image\/png;base64,/,'The image-layer fallback exports as animated SVG');
+  const lottie=animated.exportLottie(animatedScene);
+  assert.match(lottie.assets[0].p,/^data:image\/png;base64,/,'The image-layer fallback exports with an embedded Lottie asset');
+  console.log('PASS logo upload pipeline: PNG/SVG import, worker tracing, dense path compaction, detailed-image fallback and animated SVG/Lottie exports');
 } finally {
   await unlink(output);
   await win.happyDOM.abort();
