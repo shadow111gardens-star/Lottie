@@ -8,12 +8,26 @@ export type FreeTrial = { enabled: boolean; used: number; remaining: number; lim
 export async function trialRequest(action: 'start' | 'reserve', projectId?: string) {
   const user = getFirebaseAuth().currentUser;
   if (!user) throw new Error('Sign in to use your free trials.');
-  const response = await fetch('/api/trial', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await user.getIdToken()}` }, body: JSON.stringify({ action, ...(projectId ? { projectId } : {}) }) });
-  const result = await response.json();
-  if (!response.ok) throw Object.assign(new Error(result.error || 'Could not check free project trials.'), { status: response.status });
-  if (getFirebaseAuth().currentUser?.uid !== user.uid) throw new Error('Your account changed. Sign in again.');
-  window.dispatchEvent(new Event('vekto-access-changed'));
-  return result;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
+  try {
+    const token = await Promise.race([
+      user.getIdToken(),
+      new Promise<never>((_, reject) => controller.signal.addEventListener('abort', () => reject(new Error('The free plan check timed out. Please retry.')), { once: true })),
+    ]);
+    if (controller.signal.aborted) throw new Error('The free plan check timed out. Please retry.');
+    const response = await fetch('/api/trial', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ action, ...(projectId ? { projectId } : {}) }), signal: controller.signal });
+    const result = await response.json();
+    if (!response.ok) throw Object.assign(new Error(result.error || 'Could not check free project trials.'), { status: response.status });
+    if (getFirebaseAuth().currentUser?.uid !== user.uid) throw new Error('Your account changed. Sign in again.');
+    window.dispatchEvent(new Event('vekto-access-changed'));
+    return result;
+  } catch (error) {
+    if (controller.signal.aborted) throw new Error('The free plan check timed out. Please retry.');
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 export type Entitlement = { plan: PaidPlan; active: boolean; lifetime: boolean; subscriptionStatus?: string };
 export function isPaidEntitlement(value: unknown): boolean {
@@ -57,7 +71,12 @@ export function useEntitlement({ pollUntilActive = false, revalidationKey = '' }
       const abort = new AbortController(); request = abort;
       const timeout = setTimeout(() => abort.abort(), 15000);
       try {
-        const response = await fetch('/api/entitlement', { headers: { Authorization: `Bearer ${await user.getIdToken()}` }, cache: 'no-store', signal: abort.signal });
+        const token = await Promise.race([
+          user.getIdToken(),
+          new Promise<never>((_, reject) => abort.signal.addEventListener('abort', () => reject(new Error('Plan check timed out.')), { once: true })),
+        ]);
+        if (abort.signal.aborted) throw new Error('Plan check timed out.');
+        const response = await fetch('/api/entitlement', { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store', signal: abort.signal });
         const result = await response.json();
         if (!response.ok) throw new Error('Could not check your plan.');
         if (disposed || version !== generation || abort.signal.aborted || getFirebaseAuth().currentUser?.uid !== user.uid) return;

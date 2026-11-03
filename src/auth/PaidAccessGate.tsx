@@ -21,7 +21,10 @@ export default function PaidAccessGate({ children, pricing }: { children: ReactN
     enrolling.current = uid;
     setEnrollment(null);
     // New/legacy authenticated accounts start with Free; no pricing modal is forced.
-    void trialRequest('start').catch(cause => {
+    void trialRequest('start').then(() => {
+      if (enrolling.current === uid) enrolling.current = null;
+    }).catch(cause => {
+      if (enrolling.current === uid) enrolling.current = null;
       setEnrollment({ uid, error: cause instanceof Error ? cause.message : 'Could not start your free plan.' });
     });
   }, [billing.accessChecked, billing.canAccess, billing.userId, enrollmentRetry]);
@@ -51,7 +54,24 @@ export default function PaidAccessGate({ children, pricing }: { children: ReactN
   if (billing.authError) return <div className="paid-access-check" role="alert">{billing.status}</div>;
   if (!billing.authReady) return <div className="paid-access-check" role="status">Checking account access…</div>;
   if (!billing.userId) return <Navigate to="/" replace />;
-  if (!billing.canAccess) return <div className="paid-access-check"><div role="status">{enrollment?.uid === billing.userId ? enrollment.error : billing.status.startsWith('Could not') ? billing.status : 'Preparing your workspace…'}{enrollment?.uid === billing.userId && <button type="button" onClick={() => { enrolling.current = null; setEnrollment(null); setEnrollmentRetry(value => value + 1); }}>Retry</button>}</div></div>;
+  if (!billing.canAccess) {
+    const enrollmentFailed = enrollment?.uid === billing.userId;
+    const checkFailed = billing.status.startsWith('Could not');
+    return <div className="paid-access-check"><div className="paid-access-check-card" role={enrollmentFailed || checkFailed ? 'alert' : 'status'}>
+      <span className="paid-access-check-mark" aria-hidden="true"><Crown size={19} /></span>
+      <strong>{enrollmentFailed ? 'Free plan setup paused' : checkFailed ? 'Could not check your access' : 'Preparing your workspace…'}</strong>
+      <p>{enrollmentFailed ? enrollment.error : checkFailed ? 'Your projects are still protected. Check your connection and retry.' : billing.status || 'Checking your plan and project access.'}</p>
+      {(enrollmentFailed || checkFailed) && <button type="button" onClick={() => {
+        if (enrollmentFailed) {
+          enrolling.current = null;
+          setEnrollment(null);
+          setEnrollmentRetry(value => value + 1);
+        } else {
+          window.dispatchEvent(new Event('vekto-access-changed'));
+        }
+      }}>Retry</button>}
+    </div></div>;
+  }
   return <>
     <div className="paid-access-workspace" inert={showUpgrade || undefined} aria-hidden={showUpgrade || undefined}>{children}</div>
     {showUpgrade && <div className="paid-access-backdrop" onPointerDown={event => { if (event.target === event.currentTarget) setUpgradeUid(null); }}>

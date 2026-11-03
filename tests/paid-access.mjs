@@ -68,7 +68,7 @@ try{
  // Validation errors cannot expose the workspace or force a pricing modal.
  ok=false;responseStatus=500;
  await React.act(async()=>{window.dispatchEvent(new win.Event('focus'));await pause(20);});
- noPopup();assert.equal(host.querySelector('.protected-content'),null);assert.match(host.textContent,/Retrying/);
+ noPopup();assert.equal(host.querySelector('.protected-content'),null);assert.match(host.textContent,/Could not check your access/);assert.ok(host.querySelector('button')?.textContent.includes('Retry'));
  ok=true;responseStatus=200;
  await React.act(async()=>{window.dispatchEvent(new win.Event('focus'));await pause(20);});workspace();
  // Failed new-account enrollment is recoverable and cannot unlock access.

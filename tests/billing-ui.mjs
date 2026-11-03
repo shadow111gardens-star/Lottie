@@ -19,6 +19,7 @@ const { createRoot } = await import('react-dom/client');
 const host = document.createElement('div'); document.body.append(host);
 const root = createRoot(host);
 const nativeFetch = globalThis.fetch;
+const nativeSetTimeout = globalThis.setTimeout;
 let response = { entitlement: null };
 const calls = [];
 globalThis.fetch = async (url, options) => { calls.push({ url, options }); return { ok: true, json: async () => response }; };
@@ -62,8 +63,16 @@ try {
   await assert.rejects(api.createCheckout('lifetime'), /Please try again/);
   globalThis.billingUser = null;
   await assert.rejects(api.createCheckout('pro'), /Sign in/);
+  globalThis.billingUser = { uid: 'stalled-token-user', getIdToken: () => new Promise(() => {}) };
+  globalThis.setTimeout = (callback, delay, ...args) => nativeSetTimeout(callback, delay === 15000 ? 5 : delay, ...args);
+  await React.act(async () => {
+    window.dispatchEvent(new win.Event('focus'));
+    await new Promise(resolve => nativeSetTimeout(resolve, 20));
+  });
+  assert.match(host.textContent, /Could not check plan\. Retrying/);
+  globalThis.setTimeout = nativeSetTimeout;
   console.log('PASS frontend checkout body/auth/redirect/errors, dashboard processing without optimistic activation, server entitlement refresh and inactive Pro display');
 } finally {
-  await React.act(async () => root.unmount()); globalThis.fetch = nativeFetch;
+  globalThis.setTimeout = nativeSetTimeout; await React.act(async () => root.unmount()); globalThis.fetch = nativeFetch;
   await unlink(output); await win.happyDOM.abort(); delete globalThis.billingUser;
 }

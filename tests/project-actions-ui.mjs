@@ -3,7 +3,7 @@ import { build } from 'esbuild';
 import { writeFile, unlink } from 'node:fs/promises';
 import { Window } from 'happy-dom';
 const win = new Window({ url: 'http://localhost/dashboard' });
-for (const key of ['document', 'navigator', 'HTMLElement', 'SVGElement', 'Element', 'Node', 'Event', 'localStorage']) Object.defineProperty(globalThis, key, { value: win[key], configurable: true });
+for (const key of ['document', 'navigator', 'HTMLElement', 'SVGElement', 'Element', 'Node', 'Event', 'localStorage', 'sessionStorage']) Object.defineProperty(globalThis, key, { value: win[key], configurable: true });
 globalThis.window = win; globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 const output = new URL('./.project-actions-ui.mjs', import.meta.url);
 const bundle = await build({ stdin: { contents: 'export { default as Dashboard } from "./src/Dashboard"; export { default as Editor } from "./src/Editor"; export { initialScene } from "./src/editor/model"; export { stopProject } from "./src/projects/lifecycle";', resolveDir: process.cwd() }, bundle: true, platform: 'node', format: 'esm', packages: 'external', loader: { '.css': 'empty' }, write: false, plugins: [{
@@ -48,6 +48,10 @@ try {
   const workspaceButtons=[...host.querySelectorAll('nav[aria-label="Project navigation"] button')];
   assert.match(workspaceButtons[1].textContent,/PNG/);assert.match(workspaceButtons[2].textContent,/AI Animator/);
   await React.act(async()=>workspaceButtons[2].click());assert.ok(host.querySelector('.ai-tool'),'AI Animator opens under PNG to SVG');
+  assert.equal(win.sessionStorage.getItem('vekto-dashboard-tab:action-owner'),'ai-animator','The selected tool is saved per signed-in account');
+  await React.act(async()=>root.unmount());root=createRoot(host);
+  await React.act(async()=>root.render(React.createElement(MemoryRouter,{initialEntries:['/dashboard']},React.createElement(Routes,null,React.createElement(Route,{path:'/',element:React.createElement('div',{id:'signed-out'},'Signed out')}),React.createElement(Route,{path:'/dashboard',element:React.createElement(api.Dashboard)}),React.createElement(Route,{path:'/editor/:projectId',element:React.createElement(api.Editor)})))));
+  assert.ok(host.querySelector('.ai-tool'),'AI Animator selection is restored after a dashboard refresh');
   await React.act(async()=>[...host.querySelectorAll('nav[aria-label="Project navigation"] button')][0].click());
   globalThis.actionShowExisting=true;
   await React.act(async()=>{window.dispatchEvent(new win.Event('kinetic-projects-changed'));await new Promise(resolve=>setTimeout(resolve,10));});

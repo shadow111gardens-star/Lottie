@@ -1,5 +1,11 @@
 
 .paid-access-check{min-height:100dvh;display:grid;place-items:center;background:#f7f8ff;color:#55516e;font:500 15px Outfit,system-ui,sans-serif}
+.paid-access-check-card{width:min(420px,calc(100vw - 40px));display:flex;align-items:center;flex-direction:column;gap:12px;padding:32px;border:1px solid #e7e6f4;border-radius:20px;background:#ffffffde;box-shadow:0 18px 60px #25214a0b;text-align:center}
+.paid-access-check-mark{width:42px;height:42px;display:grid;place-items:center;border-radius:13px;background:#f0eaff;color:#7b4cff}
+.paid-access-check-card strong{font-size:16px;color:#161a2d}
+.paid-access-check-card p{font-size:13px;line-height:1.6;color:#7c8298;margin:0}
+.paid-access-check-card button{min-width:104px;margin-top:4px;padding:10px 16px;border:0;border-radius:9px;background:#171b2f;color:white;font:inherit;font-size:13px;cursor:pointer}
+.paid-access-check-card button:hover{background:#34265f}
 .paid-access-preview{position:fixed;inset:0;overflow:hidden;pointer-events:none;user-select:none}
 .paid-access-preview .pd-dashboard{min-height:100dvh}
 .paid-access-preview .pd-search{gap:12px;color:#8790aa}.paid-access-preview .pd-search kbd{margin-left:auto}
