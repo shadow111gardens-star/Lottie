@@ -18,8 +18,8 @@ globalThis.Worker = class {
   terminate() {}
 };
 globalThis.Image = class {
-  naturalWidth = 64;
-  naturalHeight = 48;
+  get naturalWidth() { return globalThis.mockLogoSize?.width ?? 64; }
+  get naturalHeight() { return globalThis.mockLogoSize?.height ?? 48; }
   set src(_value) { queueMicrotask(() => this.onload?.()); }
 };
 const createElement = win.document.createElement.bind(win.document);
@@ -52,6 +52,14 @@ try {
   assert.equal(traced.flattened,false);
   assert.ok(traced.scene.layers.some(layer => layer.type === 'path' && layer.fill === '#ff0088'));
   assert.match(traced.preview, /^data:image\/png;base64,/);
+
+  globalThis.mockLogoSize={width:6000,height:4000};
+  const largeLogo=await prepareAnimatorLogo(png,()=>{},signal);
+  assert.equal(largeLogo.traced,true,'Logos over the former 16 megapixel cap are accepted and downscaled before tracing');
+  assert.ok(largeLogo.preview,'Large accepted logos produce a resized preview');
+  globalThis.mockLogoSize={width:17000,height:1000};
+  await assert.rejects(()=>prepareAnimatorLogo(png,()=>{},signal),/up to 64 megapixels and 16384 pixels per side/);
+  globalThis.mockLogoSize=null;
 
   const svg = new File(['<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 80"><rect x="10" y="10" width="100" height="60" fill="#6633ff"/></svg>'], 'brand.svg', { type: 'image/svg+xml' });
   const editable = await prepareAnimatorLogo(svg, () => {}, signal);
