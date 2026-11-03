@@ -31,7 +31,9 @@ try {
   assert.ok(serverHtml.includes('NOT A RELEASED WORKFLOW'));
   await React.act(async () => root.render(React.createElement(MemoryRouter, { initialEntries: ['/about'] }, React.createElement(Routes, null, React.createElement(Route, { path: '/about', element: page })))));
   assert.equal(host.querySelectorAll('h1').length, 1);
-  assert.equal(host.querySelectorAll('h2').length, 11);
+  assert.equal(host.querySelectorAll('h2').length, 10);
+  assert.equal(host.querySelector('#founder'), null);
+  assert.deepEqual([...host.querySelectorAll('section.about-section > .about-eyebrow > span')].map(span => span.textContent), Array.from({length:10}, (_, i) => String(i+1).padStart(2, '0')));
   assert.equal(document.title, 'About Vekto — Building the Future of Product Animation');
   assert.equal(document.querySelector('link[rel="canonical"]').href, 'https://www.vekto.website/about');
   assert.equal(JSON.parse(document.querySelector('script[type="application/ld+json"]').textContent).mainEntity.founder.name, 'Abhay Solanki');
@@ -43,7 +45,7 @@ try {
     assert.ok(anchor.getAttribute('aria-label').includes('new tab'));
     assert.ok(['https://x.com/abhay8769', 'https://www.linkedin.com/in/abhay-solanki-b2a503234/'].includes(anchor.href));
   }
-  assert.equal(host.querySelectorAll('a[href="mailto:founder@vekto.website"]').length, 4);
+  assert.equal(host.querySelectorAll('a[href="mailto:founder@vekto.website"]').length, 2);
   const app = await readFile('src/App.tsx', 'utf8');
   assert.match(app, /path="\/about" element=\{<AboutPage/);
   const routing = JSON.parse(await readFile('vercel.json', 'utf8'));
