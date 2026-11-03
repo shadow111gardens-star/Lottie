@@ -65,10 +65,10 @@ try{
    await upgrade();assert.ok(host.querySelector('[role="dialog"]'));
    entitlement=paid;await wait(2100);workspace();assert.notEqual(document.body.style.overflow,'hidden');
  }
- // Validation errors cannot expose the workspace or force a pricing modal.
+ // A transient refresh error keeps the last same-account server confirmation visible.
  ok=false;responseStatus=500;
  await React.act(async()=>{window.dispatchEvent(new win.Event('focus'));await pause(20);});
- noPopup();assert.equal(host.querySelector('.protected-content'),null);assert.match(host.textContent,/Could not check your access/);assert.ok(host.querySelector('button')?.textContent.includes('Retry'));
+ workspace();
  ok=true;responseStatus=200;
  await React.act(async()=>{window.dispatchEvent(new win.Event('focus'));await pause(20);});workspace();
  // Failed new-account enrollment is recoverable and cannot unlock access.

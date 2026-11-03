@@ -1,4 +1,3 @@
-import { flushSync } from 'react-dom';
 import { useEffect, useState } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { getFirebaseAuth } from '../lib/firebase';
@@ -56,7 +55,7 @@ export function useEntitlement({ pollUntilActive = false, revalidationKey = '' }
   const [confirmation, setConfirmation] = useState<{ uid: string; route: string } | null>(null);
   const [status, setStatus] = useState('Checking plan...');
   useEffect(() => {
-    let disposed = false, generation = 0, attempts = 0;
+    let disposed = false, generation = 0, attempts = 0, hasConfirmedResponse = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
     let stopAuth: (() => void) | undefined;
     let request: AbortController | undefined;
@@ -89,6 +88,7 @@ export function useEntitlement({ pollUntilActive = false, revalidationKey = '' }
         const waiting = processing && (!paid || (['pro', 'lifetime'].includes(params.get('checkout_plan') || '') && current?.plan !== params.get('checkout_plan')));
         const free = result.trial;
         const currentTrial: FreeTrial | null = free?.enabled === true && free.limit === 3 && Number.isInteger(free.used) && free.used >= 0 && free.used <= 3 && free.remaining === 3 - free.used ? free : null;
+        hasConfirmedResponse = true;
         setTrial(currentTrial);
         setEntitlement(current); setConfirmation({ uid: user.uid, route: revalidationKey });
         setStatus(waiting ? 'Payment processing...' : paid ? `${current!.plan === 'pro' ? 'Pro' : 'Lifetime'} \u00b7 Active` : currentTrial ? `Free · ${currentTrial.remaining} of 3 project trials remaining` : current ? `${current.plan === 'pro' ? 'Pro' : 'Lifetime'} \u00b7 Inactive` : 'No active paid plan');
@@ -97,17 +97,19 @@ export function useEntitlement({ pollUntilActive = false, revalidationKey = '' }
         else if (waiting) setStatus('Payment still pending. Refresh to check again.');
       } catch {
         if (!disposed && version === generation) {
-          setEntitlement(null); setTrial(null); setConfirmation(null); setStatus('Could not check plan. Retrying...');
+          if (!hasConfirmedResponse) {
+            setEntitlement(null); setTrial(null); setConfirmation(null); setStatus('Could not check plan. Retrying...');
+          }
           if (pollUntilActive || attempts++ < 30) timer = setTimeout(() => void refresh(), 2000);
         }
       } finally { clearTimeout(timeout); }
     };
-    const resume = () => { flushSync(reset); void refresh(); };
-    const leave = () => { flushSync(reset); };
-    const visibility = () => { if (document.visibilityState === 'visible') resume(); else leave(); };
+    const resume = () => { void refresh(); };
+    const pause = () => { ++generation; clearTimeout(timer); request?.abort(); };
+    const visibility = () => { if (document.visibilityState === 'visible') resume(); else pause(); };
     try {
       stopAuth = onAuthStateChanged(getFirebaseAuth(), user => {
-        reset(); attempts = 0; setUserId(user?.uid ?? null); setAuthReady(true); setAuthError(false);
+        hasConfirmedResponse = false; reset(); attempts = 0; setUserId(user?.uid ?? null); setAuthReady(true); setAuthError(false);
         setStatus(user ? 'Checking plan...' : ''); void refresh();
       }, () => { reset(); setAuthReady(true); setAuthError(true); setStatus('Could not verify your account. Reload to retry.'); });
     } catch { reset(); setAuthReady(true); setAuthError(true); setStatus('Could not verify your account. Reload to retry.'); }
@@ -116,15 +118,15 @@ export function useEntitlement({ pollUntilActive = false, revalidationKey = '' }
     window.addEventListener('focus', resume);
     window.addEventListener('pageshow', resume);
     window.addEventListener('popstate', resume);
-    window.addEventListener('pagehide', leave);
-    window.addEventListener('vekto-checkout-leaving', leave);
+    window.addEventListener('pagehide', pause);
+    window.addEventListener('vekto-checkout-leaving', pause);
     document.addEventListener('visibilitychange', visibility);
     return () => {
       disposed = true; ++generation; clearTimeout(timer); request?.abort(); stopAuth?.();
       window.removeEventListener('vekto-access-changed', accessChanged);
       window.removeEventListener('focus', resume); window.removeEventListener('pageshow', resume);
-      window.removeEventListener('popstate', resume); window.removeEventListener('pagehide', leave);
-      window.removeEventListener('vekto-checkout-leaving', leave); document.removeEventListener('visibilitychange', visibility);
+      window.removeEventListener('popstate', resume); window.removeEventListener('pagehide', pause);
+      window.removeEventListener('vekto-checkout-leaving', pause); document.removeEventListener('visibilitychange', visibility);
     };
   }, [pollUntilActive, revalidationKey]);
   // onAuthStateChanged owns identity changes and clears confirmation. Re-reading

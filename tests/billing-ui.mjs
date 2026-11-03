@@ -42,6 +42,9 @@ try {
   await React.act(async () => globalThis.billingUiRerender());
   assert.equal(host.firstElementChild.getAttribute('data-access'), 'true', 'A transient auth.currentUser mismatch cannot override the confirmed auth listener and entitlement');
   globalThis.billingUser = confirmedAccount;
+  await React.act(async () => { window.dispatchEvent(new win.Event('pagehide')); globalThis.billingUiRerender(); });
+  assert.equal(host.firstElementChild.getAttribute('data-access'), 'true', 'Hiding the tab preserves previously server-confirmed access');
+  assert.equal(host.textContent, 'Lifetime · Active', 'Tab return does not replace the workspace with a checking message');
   response = { entitlement: { plan: 'pro', active: false, lifetime: false } };
   window.history.replaceState(null, '', '/dashboard');
   await React.act(async () => { root.render(React.createElement(View, { key: 'normal-dashboard' })); await new Promise(resolve => setTimeout(resolve, 5)); });
@@ -75,7 +78,7 @@ try {
     window.dispatchEvent(new win.Event('focus'));
     await new Promise(resolve => nativeSetTimeout(resolve, 20));
   });
-  assert.match(host.textContent, /Could not check plan\. Retrying/);
+  assert.equal(host.firstElementChild.getAttribute('data-access'), 'true', 'A temporary refresh failure keeps the last server-confirmed access visible');
   globalThis.setTimeout = nativeSetTimeout;
   console.log('PASS frontend checkout body/auth/redirect/errors, dashboard processing without optimistic activation, server entitlement refresh and inactive Pro display');
 } finally {
