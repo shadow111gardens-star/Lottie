@@ -25,7 +25,7 @@ const calls = [];
 globalThis.fetch = async (url, options) => { calls.push({ url, options }); return { ok: true, json: async () => response }; };
 try {
   const api = await import(output.href);
-  const View = () => { const billing = api.useEntitlement(); const [, rerender] = React.useReducer(value => value + 1, 0); globalThis.billingUiRerender = rerender; return React.createElement('span', { 'data-access': String(billing.canAccess) }, billing.status); };
+  const View = ({ route = '/dashboard' } = {}) => { const billing = api.useEntitlement({ revalidationKey: route }); const [, rerender] = React.useReducer(value => value + 1, 0); globalThis.billingUiRerender = rerender; return React.createElement('span', { 'data-access': String(billing.canAccess) }, billing.status); };
   await React.act(async () => { root.render(React.createElement(View)); await new Promise(resolve => setTimeout(resolve, 5)); });
   assert.match(host.textContent, /Payment processing/);
   assert.equal(calls.at(-1).url, '/api/entitlement');
@@ -37,6 +37,9 @@ try {
   await React.act(async () => { window.dispatchEvent(new win.Event('focus')); await new Promise(resolve => setTimeout(resolve, 5)); });
   assert.equal(host.textContent, 'Lifetime \u00b7 Active');
   assert.equal(host.firstElementChild.getAttribute('data-access'), 'true');
+  await React.act(async () => { root.render(React.createElement(View, { route: '/editor/logo-project' })); await new Promise(resolve => setTimeout(resolve, 5)); });
+  assert.equal(host.firstElementChild.getAttribute('data-access'), 'true', 'A route refresh keeps confirmed access visible while entitlement is revalidated');
+  assert.equal(host.textContent, 'Lifetime · Active');
   const confirmedAccount = globalThis.billingUser;
   globalThis.billingUser = { uid: 'transient-auth-cache-mismatch', getIdToken: async () => 'another-verified-token' };
   await React.act(async () => globalThis.billingUiRerender());

@@ -165,6 +165,20 @@ try {
   assert.equal(await getUserEntitlement('bob', db), null);
   assert.equal((await fetch(`${origin}/api/entitlement`, { headers: { Authorization: 'Bearer alice' } })).status, 200);
   assert.equal((await fetch(`${origin}/api/entitlement`)).status, 401);
+  const stalledApp=createPaymentsApi({db:{doc:()=>({get:()=>new Promise(()=>{})})},client,configuration,verify,entitlementTimeoutMs:10});
+  const stalledServer=stalledApp.listen(0,'127.0.0.1');await new Promise(resolve=>stalledServer.once('listening',resolve));
+  try {
+    const stalledResponse=await fetch(`http://127.0.0.1:${stalledServer.address().port}/api/entitlement`,{headers:{Authorization:'Bearer alice'}});
+    assert.equal(stalledResponse.status,503,'Entitlement backend hangs resolve to a bounded retryable response');
+    assert.match((await stalledResponse.json()).error,/Plan check took too long/);
+  } finally { await new Promise(resolve=>stalledServer.close(resolve)); }
+  const stalledAuthApp=createPaymentsApi({db,client,configuration,verify:()=>new Promise(()=>{}),authTimeoutMs:10});
+  const stalledAuthServer=stalledAuthApp.listen(0,'127.0.0.1');await new Promise(resolve=>stalledAuthServer.once('listening',resolve));
+  try {
+    const stalledAuthResponse=await fetch(`http://127.0.0.1:${stalledAuthServer.address().port}/api/entitlement`,{headers:{Authorization:'Bearer alice'}});
+    assert.equal(stalledAuthResponse.status,503,'Stalled Firebase token verification resolves to a bounded retryable response');
+    assert.match((await stalledAuthResponse.json()).error,/Account verification took too long/);
+  } finally { await new Promise(resolve=>stalledAuthServer.close(resolve)); }
   const denied = await fetch(`${origin}/api/storage/example?path=source/logo.svg`, { method: 'PUT', headers: { Authorization: 'Bearer unpaid' }, body: '<svg/>' });
   assert.equal(denied.status, 402, 'Paid cloud uploads require actual server entitlement');
   await assert.rejects(requirePaidEntitlement('unpaid', db), { status: 402 });

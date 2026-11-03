@@ -56,7 +56,7 @@ export default function PaidAccessGate({ children, pricing }: { children: ReactN
   if (!billing.userId) return <Navigate to="/" replace />;
   if (!billing.canAccess) {
     const enrollmentFailed = enrollment?.uid === billing.userId;
-    const checkFailed = billing.status.startsWith('Could not');
+    const checkFailed = billing.status.startsWith('Could not') || billing.status.startsWith('Plan check');
     return <div className="paid-access-check"><div className="paid-access-check-card" role={enrollmentFailed || checkFailed ? 'alert' : 'status'}>
       <span className="paid-access-check-mark" aria-hidden="true"><Crown size={19} /></span>
       <strong>{enrollmentFailed ? 'Free plan setup paused' : checkFailed ? 'Could not check your access' : 'Preparing your workspace…'}</strong>

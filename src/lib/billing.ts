@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { getFirebaseAuth } from '../lib/firebase';
 
@@ -52,8 +52,9 @@ export function useEntitlement({ pollUntilActive = false, revalidationKey = '' }
   const [authReady, setAuthReady] = useState(false);
   const [authError, setAuthError] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
-  const [confirmation, setConfirmation] = useState<{ uid: string; route: string } | null>(null);
+  const [confirmation, setConfirmation] = useState<{ uid: string } | null>(null);
   const [status, setStatus] = useState('Checking plan...');
+  const previousRoute = useRef(revalidationKey);
   useEffect(() => {
     let disposed = false, generation = 0, attempts = 0, hasConfirmedResponse = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -77,7 +78,7 @@ export function useEntitlement({ pollUntilActive = false, revalidationKey = '' }
         if (abort.signal.aborted) throw new Error('Plan check timed out.');
         const response = await fetch('/api/entitlement', { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store', signal: abort.signal });
         const result = await response.json();
-        if (!response.ok) throw new Error('Could not check your plan.');
+        if (!response.ok) throw new Error(typeof result.error === 'string' ? result.error : 'Could not check your plan.');
         if (disposed || version !== generation || abort.signal.aborted || getFirebaseAuth().currentUser?.uid !== user.uid) return;
         const received = result.entitlement;
         const current: Entitlement | null = received && ['pro', 'lifetime'].includes(received.plan) && typeof received.active === 'boolean' ? received : null;
@@ -89,18 +90,21 @@ export function useEntitlement({ pollUntilActive = false, revalidationKey = '' }
         const free = result.trial;
         const currentTrial: FreeTrial | null = free?.enabled === true && free.limit === 3 && Number.isInteger(free.used) && free.used >= 0 && free.used <= 3 && free.remaining === 3 - free.used ? free : null;
         hasConfirmedResponse = true;
+        attempts = 0;
         setTrial(currentTrial);
-        setEntitlement(current); setConfirmation({ uid: user.uid, route: revalidationKey });
+        setEntitlement(current); setConfirmation({ uid: user.uid });
         setStatus(waiting ? 'Payment processing...' : paid ? `${current!.plan === 'pro' ? 'Pro' : 'Lifetime'} \u00b7 Active` : currentTrial ? `Free · ${currentTrial.remaining} of 3 project trials remaining` : current ? `${current.plan === 'pro' ? 'Pro' : 'Lifetime'} \u00b7 Inactive` : 'No active paid plan');
         if (pollUntilActive) timer = setTimeout(() => void refresh(), paid ? 15000 : 2000);
         else if (waiting && attempts++ < 30) timer = setTimeout(() => void refresh(), 2000);
         else if (waiting) setStatus('Payment still pending. Refresh to check again.');
-      } catch {
+      } catch (cause) {
         if (!disposed && version === generation) {
           if (!hasConfirmedResponse) {
-            setEntitlement(null); setTrial(null); setConfirmation(null); setStatus('Could not check plan. Retrying...');
+            setEntitlement(null); setTrial(null); setConfirmation(null);
+            setStatus(cause instanceof Error && cause.message.startsWith('Plan check') ? cause.message : 'Could not check plan. Retrying...');
           }
-          if (pollUntilActive || attempts++ < 30) timer = setTimeout(() => void refresh(), 2000);
+          if (pollUntilActive) timer = setTimeout(() => void refresh(), Math.min(15000, 2000 * 2 ** Math.min(attempts++, 3)));
+          else if (attempts++ < 30) timer = setTimeout(() => void refresh(), 2000);
         }
       } finally { clearTimeout(timeout); }
     };
@@ -128,11 +132,18 @@ export function useEntitlement({ pollUntilActive = false, revalidationKey = '' }
       window.removeEventListener('popstate', resume); window.removeEventListener('pagehide', pause);
       window.removeEventListener('vekto-checkout-leaving', pause); document.removeEventListener('visibilitychange', visibility);
     };
-  }, [pollUntilActive, revalidationKey]);
+  }, [pollUntilActive]);
+  useEffect(() => {
+    if (previousRoute.current === revalidationKey) return;
+    previousRoute.current = revalidationKey;
+    // Route changes can prompt a fresh check, but must not unmount Firebase auth
+    // listeners or revoke a server-confirmed entitlement while that check runs.
+    window.dispatchEvent(new Event('vekto-access-changed'));
+  }, [revalidationKey]);
   // onAuthStateChanged owns identity changes and clears confirmation. Re-reading
   // auth.currentUser during render can transiently disagree with that callback
   // and leave a confirmed paid account stuck behind the access gate.
-  const confirmed = !authError && !!userId && confirmation?.uid === userId && confirmation.route === revalidationKey;
+  const confirmed = !authError && !!userId && confirmation?.uid === userId;
   const active = confirmed && isPaidEntitlement(entitlement);
   const accessChecked = confirmed;
   const canAccess = active || (confirmed && trial?.enabled === true);

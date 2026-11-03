@@ -62,6 +62,16 @@ export async function requireProjectAccess(uid, projectId, db = billingFirestore
   throw error(402, 'Choose Pro or Lifetime to use this project.');
 }
 
+async function withDeadline(operation, milliseconds, message = 'Plan check took too long. Please retry.') {
+  let timer;
+  try {
+    return await Promise.race([
+      operation,
+      new Promise((_, reject) => { timer = setTimeout(() => reject(Object.assign(error(503, message), { retryable: true })), milliseconds); }),
+    ]);
+  } finally { clearTimeout(timer); }
+}
+
 // Only called after SDK raw-body signature verification. Binding metadata is created
 // on our server, never taken from the checkout request or a redirect query string.
 export async function processDodoEvent(event, eventId, { db, client, configuration }) {
@@ -150,8 +160,11 @@ export function createPaymentsApi(options = {}) {
     res.setHeader('Cache-Control', 'private, no-store');
     const token = /^Bearer ([^\s]+)$/.exec(req.headers.authorization || '')?.[1];
     if (!token) return res.status(401).json({ error: 'Sign in to continue.' });
-    try { req.identity = await (options.verify || verifyFirebaseToken)(token); }
-    catch { return res.status(401).json({ error: 'Your sign-in session has expired. Sign in again.' }); }
+    try { req.identity = await withDeadline((options.verify || verifyFirebaseToken)(token), options.authTimeoutMs ?? 12000, 'Account verification took too long. Please retry.'); }
+    catch (cause) {
+      if (cause.retryable) return res.status(503).json({ error: cause.message });
+      return res.status(401).json({ error: 'Your sign-in session has expired. Sign in again.' });
+    }
     next();
   };
   app.post('/api/webhooks/dodo', express.raw({ type: () => true, limit: '1mb' }), async (req, res, next) => {
@@ -201,14 +214,19 @@ export function createPaymentsApi(options = {}) {
     } catch (cause) { next(cause); }
   });
   app.get('/api/entitlement', authenticate, async (req, res, next) => {
-    try { const user = (await db().doc(`users/${req.identity.uid}`).get()).data(); res.json({ entitlement: entitlementFromUser(user), trial: trialFromUser(user) }); } catch (cause) { next(cause); }
+    try {
+      const snapshot = await withDeadline(db().doc(`users/${req.identity.uid}`).get(), options.entitlementTimeoutMs ?? 8000);
+      if (res.destroyed) return;
+      const user = snapshot.data();
+      res.json({ entitlement: entitlementFromUser(user), trial: trialFromUser(user) });
+    } catch (cause) { next(cause); }
   });
   app.use((cause, _req, res, _next) => {
     const providerError = cause instanceof DodoPayments.APIError;
     const status = providerError ? 502 : cause.status >= 400 && cause.status < 500 ? cause.status : cause.status === 503 ? 503 : 500;
     // SDK errors can contain request credentials; never log the exception object.
     console.error('Vekto billing request failed', { status, category: cause.name || 'Error' });
-    res.status(status).json({ error: status < 500 ? cause.message : 'Payments are temporarily unavailable. Please try again.' });
+    res.status(status).json({ error: status < 500 || cause.retryable ? cause.message : 'Payments are temporarily unavailable. Please try again.' });
   });
   return app;
 }
