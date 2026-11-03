@@ -58,3 +58,10 @@ export function GoogleSignInButton({ children, className }: { children: ReactNod
   if (!signIn) throw new Error('GoogleSignInButton requires GoogleSignInProvider.');
   return <button type="button" className={className} onClick={() => signIn.signIn()} disabled={signIn.busy} aria-busy={signIn.busy} style={signIn.busy ? { opacity: .65, cursor: 'wait' } : undefined}>{children}</button>;
 }
+
+/** Always use Google's chooser; cancelling preserves the current signed-in account. */
+export function GoogleAccountSwitchButton() {
+  const login = useContext(SignInContext);
+  if (!login) return null;
+  return <button type="button" className="pd-switch-account" onClick={() => login.signIn()} disabled={login.busy} aria-busy={login.busy}>{login.busy ? 'Opening Google…' : 'Switch account'}</button>;
+}

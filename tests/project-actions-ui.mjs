@@ -9,11 +9,12 @@ const output = new URL('./.project-actions-ui.mjs', import.meta.url);
 const bundle = await build({ stdin: { contents: 'export { default as Dashboard } from "./src/Dashboard"; export { default as Editor } from "./src/Editor"; export { initialScene } from "./src/editor/model"; export { stopProject } from "./src/projects/lifecycle";', resolveDir: process.cwd() }, bundle: true, platform: 'node', format: 'esm', packages: 'external', loader: { '.css': 'empty' }, write: false, plugins: [{
   name: 'project-actions-network-boundary', setup(build) {
     build.onResolve({ filter: /projects\/store$/ }, () => ({ path: 'store', namespace: 'actions-test' }));
+    build.onResolve({filter:/lib\/billing$/},()=>({path:'billing',namespace:'actions-test'}));
     build.onResolve({ filter: /lib\/firebase$/ }, () => ({ path: 'firebase', namespace: 'actions-test' }));
     build.onResolve({ filter: /^firebase\/auth$/ }, () => ({ path: 'auth', namespace: 'actions-test' }));
     build.onLoad({ filter: /.*/, namespace: 'actions-test' }, args => ({ contents: args.path === 'firebase'
       ? 'export const auth={currentUser:{uid:"action-owner"}}; export function getFirebaseAuth(){return auth;}'
-      : args.path === 'auth' ? 'export function onAuthStateChanged(auth,callback){queueMicrotask(()=>callback(auth.currentUser)); return ()=>{};} export async function signOut(){globalThis.actionSignOuts=(globalThis.actionSignOuts||0)+1;}'
+      : args.path === 'billing' ? 'export function useEntitlement(){return {active:true,status:"Pro · Active"};}' : args.path === 'auth' ? 'export function onAuthStateChanged(auth,callback){queueMicrotask(()=>callback(auth.currentUser)); return ()=>{};} export async function signOut(){globalThis.actionSignOuts=(globalThis.actionSignOuts||0)+1;} export class GoogleAuthProvider {setCustomParameters(){}} export async function signInWithPopup(){}'
         : `export const PROJECTS_CHANGED='kinetic-projects-changed'; export function cachedProjects(){return {projects:[],invalid:0};}
 export function createBlankProject(){globalThis.actionCreates++; return globalThis.actionProject;}
 export function localProject(id){return globalThis.actionProject?.id===id?globalThis.actionProject:null;}
@@ -39,6 +40,11 @@ try {
   await React.act(async () => root.render(React.createElement(MemoryRouter, { initialEntries: ['/dashboard'] }, React.createElement(Routes, null,
     React.createElement(Route, { path: '/', element: React.createElement('div',{id:'signed-out'},'Signed out') }),React.createElement(Route, { path: '/dashboard', element: React.createElement(api.Dashboard) }),
     React.createElement(Route, { path: '/editor/:projectId', element: React.createElement(api.Editor) })))));
+  let upgradeOpens=0;const onUpgrade=()=>upgradeOpens++;
+  window.addEventListener('vekto-upgrade-open',onUpgrade);
+  await React.act(async()=>host.querySelector('.pd-upgrade-action').click());
+  assert.equal(upgradeOpens,1);assert.ok(host.querySelector('.pd-dashboard'),'Upgrade keeps the dashboard route');
+  window.removeEventListener('vekto-upgrade-open',onUpgrade);
   globalThis.actionShowExisting=true;
   await React.act(async()=>{window.dispatchEvent(new win.Event('kinetic-projects-changed'));await new Promise(resolve=>setTimeout(resolve,10));});
   await React.act(async()=>host.querySelector('.pd-preview').click());

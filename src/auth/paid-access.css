@@ -13,3 +13,5 @@
 @media(max-width:767px){.paid-access-backdrop{padding:12px;align-items:flex-start}.paid-access-dialog{max-height:calc(100dvh - 24px);padding:20px;border-radius:24px}.paid-access-heading{padding:0 0 18px}.paid-access-heading h1{font-size:25px}.paid-access-dialog .pricing-plan{padding:24px;border-radius:24px}}
 
 @media(min-width:1024px){.paid-access-dialog{max-width:1200px}.paid-access-dialog .pricing-plan{padding:24px}.paid-access-dialog .pricing-plan li{font-size:12px}}
+
+.paid-access-workspace{display:contents}.paid-access-dialog{position:relative}.paid-access-close{position:absolute;right:22px;top:22px;display:grid;place-items:center;width:36px;height:36px;border:0;border-radius:50%;background:#ffffffbb;color:#52617a;cursor:pointer}.paid-access-close:hover{background:#fff}.paid-access-heading{padding-right:32px}

@@ -787,7 +787,7 @@ function Pricing() {
   const begin = async (plan: Plan['id']) => {
     if (pending.current) return;
     pending.current = true; setPendingPlan(plan); setCheckoutError('');
-    try { if (plan === 'free') { await trialRequest('start'); navigate('/dashboard'); } else await createCheckout(plan); }
+    try { if (plan === 'free') { await trialRequest('start'); window.dispatchEvent(new Event('vekto-upgrade-close')); navigate('/dashboard'); } else await createCheckout(plan); }
     catch (cause) { setCheckoutError(cause instanceof Error ? cause.message : 'Checkout could not be created.'); }
     finally { pending.current = false; setPendingPlan(null); }
   };

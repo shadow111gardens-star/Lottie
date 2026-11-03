@@ -111,6 +111,7 @@ export function useEntitlement({ pollUntilActive = false, revalidationKey = '' }
   let currentUid: string | undefined;
   try { currentUid = getFirebaseAuth().currentUser?.uid; } catch { /* Initialization errors never grant access. */ }
   const active = !authError && !!userId && confirmation?.uid === userId && confirmation.route === revalidationKey && currentUid === userId && isPaidEntitlement(entitlement);
+  const accessChecked = !authError && !!userId && confirmation?.uid === userId && confirmation.route === revalidationKey && currentUid === userId;
   const canAccess = active || (!authError && !!userId && confirmation?.uid === userId && confirmation.route === revalidationKey && currentUid === userId && trial?.enabled === true);
-  return { entitlement, trial, status, authReady, authError, userId, active, canAccess };
+  return { entitlement, trial, status, authReady, authError, userId, active, canAccess, accessChecked };
 }

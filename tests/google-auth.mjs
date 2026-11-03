@@ -53,7 +53,17 @@ try {
   assert.equal(host.querySelector('[role="alert"]'), null);
   await render('missing'); api.setAuth(null); await click(host.querySelector('button'));
   assert.match(host.querySelector('[role="alert"]').textContent, /configuration is missing/);
-  const source = await readFile('src/App.tsx', 'utf8');
+  const source = (await readFile('src/App.tsx', 'utf8')) + (await readFile('src/SiteChrome.tsx', 'utf8'));
   assert.equal((source.match(/<GoogleSignInButton className=/g) ?? []).length, 4);
+  api.setAuth({currentUser:{uid:'account-one'}});
+  await React.act(async()=>root.render(React.createElement(MemoryRouter,{key:'switch-accounts'},React.createElement(api.GoogleSignInProvider,null,React.createElement(api.GoogleAccountSwitchButton)))));
+  const beforeSwitch=calls.length;
+  for(const uid of ['account-two','account-one']){
+    await click(host.querySelector('button'));
+    assert.equal(calls.at(-1).provider.params.prompt,'select_account');
+    assert.equal(calls.at(-1).provider.params.login_hint,undefined,'No account hint suppresses the chooser');
+    await React.act(async()=>settle.resolve({user:{uid}}));
+  }
+  assert.equal(calls.length,beforeSwitch+2,'Each Switch account action opens a fresh Google chooser');
   console.log('PASS Google provider, pending state, duplicate-click protection, success navigation, invalid config and popup cancellation; desktop/mobile sign-in entry points');
 } finally { await React.act(async () => root.unmount()); await unlink(file); await win.happyDOM.abort(); delete globalThis.authPopupTest; }
