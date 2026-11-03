@@ -45,6 +45,10 @@ try {
   await React.act(async()=>host.querySelector('.pd-upgrade-action').click());
   assert.equal(upgradeOpens,1);assert.ok(host.querySelector('.pd-dashboard'),'Upgrade keeps the dashboard route');
   window.removeEventListener('vekto-upgrade-open',onUpgrade);
+  const workspaceButtons=[...host.querySelectorAll('nav[aria-label="Project navigation"] button')];
+  assert.match(workspaceButtons[1].textContent,/PNG/);assert.match(workspaceButtons[2].textContent,/AI Animator/);
+  await React.act(async()=>workspaceButtons[2].click());assert.ok(host.querySelector('.ai-tool'),'AI Animator opens under PNG to SVG');
+  await React.act(async()=>[...host.querySelectorAll('nav[aria-label="Project navigation"] button')][0].click());
   globalThis.actionShowExisting=true;
   await React.act(async()=>{window.dispatchEvent(new win.Event('kinetic-projects-changed'));await new Promise(resolve=>setTimeout(resolve,10));});
   await React.act(async()=>host.querySelector('.pd-preview').click());

@@ -6,6 +6,7 @@ import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 import { viteSingleFile } from "vite-plugin-singlefile";
 import { createStorageMiddleware } from './server/storage.mjs';
+import { createAiAnimatorApi } from './server/ai-animator.mjs';
 import { createPaymentsApi } from './server/payments.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -15,7 +16,7 @@ const __dirname = path.dirname(__filename);
 export default defineConfig({
   plugins: [react(), tailwindcss(), viteSingleFile(), {
     name: 'authenticated-project-storage',
-    configureServer(server) { server.middlewares.use(createPaymentsApi()); server.middlewares.use('/api/storage', createStorageMiddleware()); },
+    configureServer(server) { server.middlewares.use(createAiAnimatorApi()); server.middlewares.use(createPaymentsApi()); server.middlewares.use('/api/storage', createStorageMiddleware()); },
     configurePreviewServer(server) {
       // Vite preview otherwise resolves extensionless SPA paths to the homepage HTML.
       server.middlewares.use((request, response, next) => {
@@ -25,7 +26,7 @@ export default defineConfig({
           response.end(html);
         }).catch(next);
       });
-      server.middlewares.use(createPaymentsApi());
+      server.middlewares.use(createAiAnimatorApi()); server.middlewares.use(createPaymentsApi());
       server.middlewares.use('/api/storage', createStorageMiddleware());
     },
   }],

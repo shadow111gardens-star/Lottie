@@ -11,6 +11,7 @@
     "build": "vite build",
     "typecheck": "tsc --noEmit",
     "test:firebase": "node tests/firebase.mjs",
+    "test:ai-animator": "node tests/ai-animator.mjs && node tests/ai-animator-ui.mjs && node tests/ai-logo-validation.mjs",
     "test:auth": "node tests/google-auth.mjs",
     "test:payments": "node tests/payments.mjs && node tests/billing-ui.mjs && node tests/paid-access.mjs",
     "test:payments:emulator": "node scripts/test-cloud.mjs --payments",

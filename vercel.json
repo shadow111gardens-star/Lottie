@@ -4,6 +4,7 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "functions": {
+    "api/ai-animator.mjs": { "maxDuration": 60, "excludeFiles": "{public,dist,tests}/**" },
     "api/storage.mjs": { "maxDuration": 300, "excludeFiles": "{public,dist,tests}/**" },
     "api/checkout.mjs": { "maxDuration": 60, "excludeFiles": "{public,dist,tests}/**" },
     "api/trial.mjs": { "maxDuration": 60, "excludeFiles": "{public,dist,tests}/**" },
@@ -11,6 +12,7 @@
     "api/webhooks/dodo.mjs": { "maxDuration": 60, "excludeFiles": "{public,dist,tests}/**" }
   },
   "routes": [
+    { "src": "/api/ai-animator", "dest": "/api/ai-animator" },
     { "src": "/api/checkout", "dest": "/api/checkout" },
     { "src": "/api/trial", "dest": "/api/trial" },
     { "src": "/api/entitlement", "dest": "/api/entitlement" },

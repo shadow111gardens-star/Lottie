@@ -1,0 +1,47 @@
+import assert from 'node:assert/strict';
+import { build } from 'esbuild';
+import { writeFile, unlink } from 'node:fs/promises';
+import { Window } from 'happy-dom';
+const win=new Window({url:'http://localhost/dashboard'});
+for(const key of ['document','navigator','HTMLElement','SVGElement','Element','Node','Event','MouseEvent'])Object.defineProperty(globalThis,key,{value:win[key],configurable:true});
+globalThis.window=win;globalThis.IS_REACT_ACT_ENVIRONMENT=true;
+globalThis.aiUser={uid:'ai-owner',getIdToken:async()=> 'test-user-token'};
+const file=new URL(`./.ai-ui-${process.pid}.mjs`,import.meta.url);
+const bundle=await build({stdin:{contents:'export {default as Animator} from "./src/projects/AiAnimator";export {initialScene,makeLayer} from "./src/editor/model";',resolveDir:process.cwd()},bundle:true,platform:'node',format:'esm',packages:'external',loader:{'.css':'empty'},write:false,plugins:[{name:'ai-boundary',setup(builder){
+ builder.onResolve({filter:/lib\/firebase$/},()=>({path:'firebase',namespace:'ai-ui'}));
+ builder.onResolve({filter:/projects\/store$/},()=>({path:'store',namespace:'ai-ui'}));
+ builder.onResolve({filter:/^\.\/ai-logo-input$/},()=>({path:'logo',namespace:'ai-ui'}));
+ builder.onLoad({filter:/.*/,namespace:'ai-ui'},args=>({contents:args.path==='firebase'?'export function getFirebaseAuth(){return {currentUser:globalThis.aiUser};}':args.path==='store'?'export async function createProject(name,scene){globalThis.aiSaves=(globalThis.aiSaves||0)+1;globalThis.aiSaved={name,scene};return "new-ai-project";}':'export async function prepareAnimatorLogo(file,progress){progress("Preparing logo");return {name:file.name,source:"data:image/png;base64,test",preview:"data:image/png;base64,test",scene:globalThis.aiLogoScene,traced:false};}'}));
+}}]});await writeFile(file,bundle.outputFiles[0].text);
+const React=await import('react');const{createRoot}=await import('react-dom/client');const{MemoryRouter,Routes,Route}=await import('react-router-dom');
+const host=document.createElement('div');document.body.append(host);const root=createRoot(host);
+const originalFetch=globalThis.fetch,originalCreate=URL.createObjectURL,originalRevoke=URL.revokeObjectURL;
+let downloaded,mode='wait',resolveRequest,calls=[];
+const plan={title:'Logo bounce',description:'A soft brand reveal.',effect:'bounce',direction:'up',duration:3,intensity:0.5,stagger:0,loop:false,background:'transparent'};
+globalThis.fetch=async(url,options)=>{assert.equal(url,'/api/ai-animator');assert.equal(options.headers.Authorization,'Bearer test-user-token');calls.push(options);if(mode==='wait')return new Promise(resolve=>{resolveRequest=resolve;});if(mode==='reject')return {ok:false,json:async()=>({error:'The AI provider rejected your API key.'})};return {ok:true,json:async()=>({plan})};};
+URL.createObjectURL=blob=>{downloaded=blob;return 'blob:ai-test';};URL.revokeObjectURL=()=>{};
+const click=async element=>React.act(async()=>element.click());
+const button=text=>[...host.querySelectorAll('button')].find(b=>b.textContent.trim()===text);
+const text=async(element,value)=>React.act(async()=>{const proto=element.tagName==='TEXTAREA'?win.HTMLTextAreaElement.prototype:win.HTMLInputElement.prototype;Object.getOwnPropertyDescriptor(proto,'value').set.call(element,value);element.dispatchEvent(new win.Event('input',{bubbles:true}));});
+try{
+ const api=await import(file.href);globalThis.aiLogoScene={...api.initialScene('Logo'),width:960,height:960,background:'transparent',layers:[api.makeLayer('rect',{x:200,y:300,width:180,height:120,fill:'#ff0088'})]};
+ await React.act(async()=>root.render(React.createElement(MemoryRouter,{initialEntries:['/dashboard']},React.createElement(Routes,null,React.createElement(Route,{path:'/dashboard',element:React.createElement(api.Animator)}),React.createElement(Route,{path:'/editor/:id',element:React.createElement('div',{id:'ai-editor'},'Editor project')})))));
+ assert.equal(button('Generate animation').disabled,true);
+ const upload=host.querySelector('[aria-label="Upload logo"]');Object.defineProperty(upload,'files',{value:[new win.File(['logo'],'brand.png',{type:'image/png'})],configurable:true});
+ await React.act(async()=>{upload.dispatchEvent(new win.Event('change',{bubbles:true}));await new Promise(r=>setTimeout(r,10));});
+ assert.ok(host.querySelector('img[alt="Prepared logo"]'));assert.equal(globalThis.aiSaved,undefined,'Uploading never consumes a project trial');
+ const key='test-only-user-ai-key';await text(host.querySelector('[aria-label="Your AI API key"]'),key);await text(host.querySelector('textarea'),'Make a soft logo bounce.');
+ assert.equal(button('Generate animation').disabled,false);await click(button('Generate animation'));assert.equal(calls.at(-1).headers['X-Vekto-AI-Key'],key);
+ await click(button('Cancel'));await React.act(async()=>{resolveRequest({ok:true,json:async()=>({plan})});await new Promise(r=>setTimeout(r,10));});assert.equal(host.querySelector('img[alt="Animated logo preview"]'),null,'Cancelled responses cannot replace preview');
+ mode='reject';await click(button('Generate animation'));assert.match(host.querySelector('[role="alert"]').textContent,/rejected/);
+ mode='ok';await click(button('Generate animation'));assert.ok(host.querySelector('img[alt="Animated logo preview"]'));
+ const svg=decodeURIComponent(host.querySelector('img[alt="Animated logo preview"]').src.split(',')[1]);assert.match(svg,/<animate/);assert.match(svg,/repeatCount="1" fill="freeze"/);assert.ok(!svg.includes(key));
+ assert.equal(globalThis.aiSaved,undefined,'AI preview does not create a project');
+ await text(host.querySelector('textarea'),'Make it slower.');await click(button('Refine animation'));assert.deepEqual(JSON.parse(calls.at(-1).body).previous,plan);
+ await click(button('Animated SVG'));assert.equal(await downloaded.text(),svg);
+ await click(button('Lottie JSON'));assert.equal(JSON.parse(await downloaded.text()).layers.length,1);
+ assert.equal(win.localStorage.length,0);assert.equal(win.sessionStorage.length,0);
+ await click(host.querySelector('[aria-label="Clear API key"]'));assert.equal(host.querySelector('[aria-label="Your AI API key"]').value,'');assert.equal(button('Refine animation').disabled,true);
+ await React.act(async()=>{const open=button('Open in Editor');open.click();open.click();open.click();});assert.equal(globalThis.aiSaves,1,'Rapid clicks cannot consume multiple project trials');assert.ok(host.querySelector('#ai-editor'));assert.ok(globalThis.aiSaved.scene.layers[0].tracks.scaleX);assert.ok(!JSON.stringify(globalThis.aiSaved).includes(key));
+ console.log('PASS AI Animator UI: upload, in-memory BYOK, authenticated generation, cancel/stale response, key errors, preview, follow-up prompts, animated SVG/Lottie downloads, editor project and no key persistence');
+}finally{await React.act(async()=>root.unmount());globalThis.fetch=originalFetch;URL.createObjectURL=originalCreate;URL.revokeObjectURL=originalRevoke;await unlink(file);await win.happyDOM.abort();}
