@@ -6,7 +6,7 @@ import { validateAnimationPlan, type AnimationPlan } from '../../shared/animatio
 export function animateLogo(source: Scene, input: AnimationPlan): Scene {
   const plan = validateAnimationPlan(input);
   const scene = structuredClone(validateScene(source));
-  if (!scene.layers.length || scene.layers.some(l=>l.media || l.lottie)) throw new Error('Upload a still logo with editable shapes.');
+  if (!scene.layers.length || scene.layers.some(l=>l.lottie)) throw new Error('Upload a still logo.');
   scene.name=plan.title;scene.duration=plan.duration;scene.fps=30;
   scene.background=plan.background==='white'?'#ffffff':plan.background==='dark'?'#0f172a':'transparent';
   const cx=scene.width/2,cy=scene.height/2;
