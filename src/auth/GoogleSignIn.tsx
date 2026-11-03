@@ -26,6 +26,7 @@ export function googleSignInError(error: unknown): string | null {
 export function GoogleSignInProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const pending = useRef(false);
+  const attemptId = useRef(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const signIn = (afterSignIn?: () => Promise<void>) => {
@@ -33,30 +34,40 @@ export function GoogleSignInProvider({ children }: { children: ReactNode }) {
     setError(null);
     pending.current = true;
     setBusy(true);
-    const provider = new GoogleAuthProvider();
-    provider.setCustomParameters({ prompt: 'select_account' });
-    // Invoke directly from the click to retain the browser's popup permission.
-    try {
-      void signInWithPopup(getFirebaseAuth(), provider)
-      .then(() => afterSignIn ? afterSignIn() : navigate('/dashboard', { replace: true }))
-      .catch((cause: unknown) => setError(googleSignInError(cause)))
-      .finally(() => { pending.current = false; setBusy(false); });
-    } catch (cause) {
-      setError(googleSignInError(cause));
+    const attempt = ++attemptId.current;
+    const finish = () => {
+      if (attempt !== attemptId.current) return;
       pending.current = false;
       setBusy(false);
+    };
+    try {
+      const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: 'select_account' });
+      // Call Firebase synchronously from the click to preserve popup permission.
+      void signInWithPopup(getFirebaseAuth(), provider)
+      .then(() => {
+        // Auth buttons must not stay disabled while enrollment/checkout is pending.
+        finish();
+        return afterSignIn ? afterSignIn() : navigate('/dashboard', { replace: true });
+      })
+      .catch((cause: unknown) => { if (attempt === attemptId.current) setError(googleSignInError(cause)); })
+      .finally(finish);
+    } catch (cause) {
+      setError(googleSignInError(cause));
+      finish();
     }
   };
   return <SignInContext.Provider value={{ busy, signIn }}>
     {children}
+    {busy && <div role="status" className="fixed bottom-6 left-1/2 z-[200] max-w-[calc(100vw-32px)] -translate-x-1/2 rounded-xl bg-slate-900 px-5 py-4 text-sm text-white shadow-xl">Opening Google sign-in… Choose an account in the Google window.</div>}
     {error && <div role="alert" className="fixed bottom-6 left-1/2 z-[200] flex max-w-[calc(100vw-32px)] -translate-x-1/2 items-center gap-4 rounded-xl bg-slate-900 px-5 py-4 text-sm text-white shadow-xl"><span>{error}</span><button type="button" aria-label="Dismiss sign-in error" onClick={() => setError(null)} className="shrink-0 px-2 text-xl">×</button></div>}
   </SignInContext.Provider>;
 }
 
-export function GoogleSignInButton({ children, className }: { children: ReactNode; className: string }) {
+export function GoogleSignInButton({ children, className, onActivate }: { children: ReactNode; className: string; onActivate?: () => void }) {
   const signIn = useContext(SignInContext);
   if (!signIn) throw new Error('GoogleSignInButton requires GoogleSignInProvider.');
-  return <button type="button" className={className} onClick={() => signIn.signIn()} disabled={signIn.busy} aria-busy={signIn.busy} style={signIn.busy ? { opacity: .65, cursor: 'wait' } : undefined}>{children}</button>;
+  return <button type="button" className={className} onClick={() => { onActivate?.(); signIn.signIn(); }} disabled={signIn.busy} aria-busy={signIn.busy} style={signIn.busy ? { opacity: .65, cursor: 'wait' } : undefined}>{signIn.busy ? 'Opening Google…' : children}</button>;
 }
 
 /** Always use Google's chooser; cancelling preserves the current signed-in account. */

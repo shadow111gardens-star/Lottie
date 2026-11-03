@@ -99,7 +99,7 @@ export function Navbar({ about = false }: { about?: boolean }) {
                   {l.label}
                 </a>
               ))}
-              <GoogleSignInButton className="rounded-full bg-slate-900 px-6 py-3 text-white">Get access</GoogleSignInButton>
+              <GoogleSignInButton className="rounded-full bg-slate-900 px-6 py-3 text-white" onActivate={() => setMenuOpen(false)}>Get access</GoogleSignInButton>
             </div>
           </motion.div>
         )}
