@@ -48,6 +48,14 @@ try {
   const workspaceButtons=[...host.querySelectorAll('nav[aria-label="Project navigation"] button')];
   assert.match(workspaceButtons[1].textContent,/PNG/);assert.match(workspaceButtons[2].textContent,/AI Animator/);
   await React.act(async()=>workspaceButtons[2].click());assert.ok(host.querySelector('.ai-tool'),'AI Animator opens under PNG to SVG');
+  const apiKeyField=host.querySelector('[aria-label="Your AI API key"]');
+  await React.act(async()=>{Object.getOwnPropertyDescriptor(win.HTMLInputElement.prototype,'value').set.call(apiKeyField,'tab-memory-test-key');apiKeyField.dispatchEvent(new win.Event('input',{bubbles:true}));});
+  await React.act(async()=>workspaceButtons[0].click());
+  assert.ok(host.querySelector('.ai-tool'),'AI Animator remains mounted while another dashboard tab is active');
+  assert.equal(host.querySelector('.ai-tool').parentElement.hidden,true,'Inactive AI Animator is hidden from view');
+  assert.equal(host.querySelector('[aria-label="Your AI API key"]').value,'tab-memory-test-key','API key remains in memory when switching dashboard tabs');
+  await React.act(async()=>workspaceButtons[2].click());
+  assert.equal(host.querySelector('[aria-label="Your AI API key"]').value,'tab-memory-test-key','Returning to AI Animator preserves the API key');
   assert.equal(win.sessionStorage.getItem('vekto-dashboard-tab:action-owner'),'ai-animator','The selected tool is saved per signed-in account');
   await React.act(async()=>root.unmount());root=createRoot(host);
   await React.act(async()=>root.render(React.createElement(MemoryRouter,{initialEntries:['/dashboard']},React.createElement(Routes,null,React.createElement(Route,{path:'/',element:React.createElement('div',{id:'signed-out'},'Signed out')}),React.createElement(Route,{path:'/dashboard',element:React.createElement(api.Dashboard)}),React.createElement(Route,{path:'/editor/:projectId',element:React.createElement(api.Editor)})))));
