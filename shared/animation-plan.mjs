@@ -1,4 +1,4 @@
-export const providers = { openai: { name: 'OpenAI', model: 'gpt-4.1-mini' }, anthropic: { name: 'Claude', model: 'claude-sonnet-5-5' }, gemini: { name: 'Google Gemini', model: 'gemini-2.5-flash' } };
+export const providers = { openai: { name: 'OpenAI', model: 'gpt-4.1-mini' }, anthropic: { name: 'Claude', model: 'claude-sonnet-5-5' }, gemini: { name: 'Google Gemini', model: 'gemini-3.8-flash' } };
 export const animationSchema = {
   type: 'object', additionalProperties: false,
   properties: {
