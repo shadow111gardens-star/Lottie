@@ -1,3 +1,4 @@
+import { trialRequest } from '../lib/billing';
 import { sceneCategory, type ProjectCategory } from './category';
 import { collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, serverTimestamp, runTransaction, type DocumentData } from 'firebase/firestore';
 import type { User } from 'firebase/auth';
@@ -175,6 +176,8 @@ async function ensureCreated(user: User, id: string): Promise<void> {
   if (creation.pending) return creation.pending;
   clearTimeout(creation.timer);
   const pending = (async () => {
+    await trialRequest('reserve', id);
+    assertOwner(user);
     // A transaction cannot overwrite edits or recreate a deleted project from
     // a delayed creation retry after another client changed the document.
     await runTransaction(firestore(), async transaction => {
@@ -189,7 +192,8 @@ async function ensureCreated(user: User, id: string): Promise<void> {
   try { await pending; }
   catch (error) {
     creation.pending = undefined;
-    if (!projectStopped(user.uid, id) && getFirebaseAuth().currentUser?.uid === user.uid) {
+    if ((error as {status?: number}).status === 402) { creations.delete(key); loaded.delete(key); }
+    if ((error as {status?: number}).status !== 402 && !projectStopped(user.uid, id) && getFirebaseAuth().currentUser?.uid === user.uid) {
       creation.timer = setTimeout(() => { void ensureCreated(user, id).catch(() => {}); }, Math.min(30000, 1000 * 2 ** Math.min(creation.attempts++, 5)));
     }
     throw error;
@@ -221,6 +225,7 @@ export async function createProject(name = 'Untitled scene', source?: Scene, lib
   }
   const id = `new-${uid()}`, scene = structuredClone(validateScene(source));
   scene.name = name.trim() || 'Untitled scene';
+  await trialRequest('reserve', id); assertOwner(user);
   await setDoc(reference(user, id), { ...blankDocument(user, id, scene), libraryOnly });
   assertOwner(user); loaded.set(cacheKey(user, id), { scene, revision: null });
   await saveProject(id, scene, user.uid); notify(); return id;
@@ -382,6 +387,7 @@ export async function duplicateProject(id: string) {
   const names = new Set(listing.docs.map(project => project.data().name));
   const base = `${scene.name} copy`; let name = base, number = 2;
   while (names.has(name)) name = `${base} ${number++}`;
+  await trialRequest('reserve', nextId); assertOwner(user);
   await setDoc(reference(user, nextId), { projectId: nextId, ownerId: user.uid, name, type: typeOf(scene), category: sceneCategory(scene), createdAt: serverTimestamp(), updatedAt: serverTimestamp(), frameCount: 0, duration: scene.duration, editorState: null, r2: {}, status: 'creating', layerCount: 0 });
   try {
     await storageRequest(user, id, 'POST', undefined, JSON.stringify({ projectId: nextId }), '/copy');
@@ -483,6 +489,7 @@ export async function restoreProject(id: string) {
   }
   if ((await getDoc(reference(user, id))).exists()) throw new Error('A project with this ID already exists.');
   resumeProject(user.uid, id);
+  await trialRequest('reserve', id); assertOwner(user);
   await setDoc(reference(user, id), { ...backup.document, status: 'creating' });
   try {
     for (const [asset, blob] of backup.files) await upload(user, id, asset.slice(prefix(user, id).length), blob);

@@ -5,12 +5,12 @@ import './paid-access.css';
 import { Crown } from 'lucide-react';
 import LockedDashboardPreview from './LockedDashboardPreview';
 
-/** Protected content is never mounted until the server confirms paid access. */
+/** Protected content is never mounted until the server confirms paid or enrolled free access. */
 export default function PaidAccessGate({ children, pricing }: { children: ReactNode; pricing: ReactNode }) {
   const location = useLocation();
   const billing = useEntitlement({ pollUntilActive: true, revalidationKey: `${location.key}:${location.pathname}${location.search}` });
   const panel = useRef<HTMLDivElement>(null);
-  const blocked = billing.authReady && !!billing.userId && !billing.active;
+  const blocked = billing.authReady && !!billing.userId && !billing.canAccess;
   useEffect(() => {
     if (!blocked) return;
     const previousOverflow = document.body.style.overflow;
@@ -24,7 +24,7 @@ export default function PaidAccessGate({ children, pricing }: { children: ReactN
     if (/^\/(dashboard|editor|project|projects)(\/|$)/.test(location.pathname)) return <Navigate to="/" replace />;
     return children;
   }
-  if (billing.active) return children;
+  if (billing.canAccess) return children;
   return <><LockedDashboardPreview /><div className="paid-access-backdrop">
     <div ref={panel} tabIndex={-1} className="paid-access-dialog" role="dialog" aria-modal="true" aria-labelledby="paid-access-title" aria-describedby="paid-access-status" onKeyDown={event => {
       if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); }

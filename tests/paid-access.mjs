@@ -16,8 +16,8 @@ const bundle=await build({stdin:{contents:'export {default as Gate} from "./src/
 const React=await import('react');const{createRoot}=await import('react-dom/client');const{MemoryRouter,Routes,Route,useNavigate}=await import('react-router-dom');
 const host=document.createElement('div');document.body.append(host);const root=createRoot(host);
 const originalFetch=globalThis.fetch;
-let entitlement=null,ok=true,responseStatus=200,deferred=null,mounts=0,calls=0,navigate;
-globalThis.fetch=async(url,options)=>{assert.equal(url,'/api/entitlement');assert.equal(options.cache,'no-store');assert.match(options.headers.Authorization,/^Bearer /);calls++;if(deferred)return deferred;return {ok,status:responseStatus,json:async()=>({entitlement})};};
+let trial=null,entitlement=null,ok=true,responseStatus=200,deferred=null,mounts=0,calls=0,navigate;
+globalThis.fetch=async(url,options)=>{assert.equal(url,'/api/entitlement');assert.equal(options.cache,'no-store');assert.match(options.headers.Authorization,/^Bearer /);calls++;if(deferred)return deferred;return {ok,status:responseStatus,json:async()=>({entitlement,trial})};};
 const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 try{
  const{Gate}=await import(output.href);
@@ -68,6 +68,14 @@ try{
  // A route change must not reuse the previous route's paid confirmation while request is pending.
  let finishRoute;deferred=new Promise(resolve=>{finishRoute=resolve;});await React.act(async()=>navigate('/editor/revalidate-paid'));gated();
  deferred=null;await React.act(async()=>{finishRoute({ok:true,json:async()=>({entitlement:null})});await pause(10);});gated();
+ // Server-enrolled Free access unlocks the preview without inventing a paid plan.
+ entitlement=null;trial={enabled:true,used:0,remaining:3,limit:3};
+ await React.act(async()=>{window.dispatchEvent(new win.Event('vekto-access-changed'));await pause(10);});
+ assert.ok(host.querySelector('.protected-content'));assert.equal(host.querySelector('[role="dialog"]'),null);
+ trial={enabled:true,used:3,remaining:0,limit:3};
+ await React.act(async()=>{window.dispatchEvent(new win.Event('vekto-access-changed'));await pause(10);});
+ assert.ok(host.querySelector('.protected-content'),'Existing trial projects stay accessible after quota is used');
+ trial=null;await React.act(async()=>{window.dispatchEvent(new win.Event('focus'));await pause(10);});gated();
  // Logout removes access and stale entitlement, restoring public UI only.
  await React.act(async()=>{globalThis.gateUser=null;for(const listener of globalThis.gateAuthListeners)listener(null);await pause(10);});assert.equal(host.querySelector('[role="dialog"]'),null);
  assert.equal(window.localStorage.getItem('plan'),'lifetime','Storage claims remain irrelevant');

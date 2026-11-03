@@ -2,7 +2,7 @@ import express from 'express';
 import { randomUUID } from 'node:crypto';
 import { config } from 'dotenv';
 import { verifyFirebaseToken } from './firebase-admin.mjs';
-import { requirePaidEntitlement } from './payments.mjs';
+import { requireProjectAccess } from './payments.mjs';
 import { S3Client, PutObjectCommand, GetObjectCommand, ListObjectsV2Command, CopyObjectCommand, DeleteObjectsCommand } from '@aws-sdk/client-s3';
 
 // Server-only module. Vite never imports this module into a browser entry point.
@@ -114,7 +114,7 @@ export function createStorageApi(options = {}) {
   });
   router.put('/:projectId', express.raw({ type: () => true, limit: '768mb' }), async (req, res, next) => {
     try {
-      await (options.requirePaid || requirePaidEntitlement)(req.identity.uid);
+      await (options.requirePaid || requireProjectAccess)(req.identity.uid, req.params.projectId);
       const key = objectKey(req.identity.uid, req.params.projectId, req.query.path);
       req.storageKey = key; trace(req, 'project-authorization');
       await authorizeProject(req.identity.uid, req.params.projectId, req.idToken, true);
@@ -134,8 +134,9 @@ export function createStorageApi(options = {}) {
   });
   router.post('/:projectId/copy', express.json({ limit: '2kb' }), async (req, res, next) => {
     try {
-      await (options.requirePaid || requirePaidEntitlement)(req.identity.uid);
+      await (options.requirePaid || requireProjectAccess)(req.identity.uid, req.params.projectId);
       const uid = req.identity.uid, source = projectPrefix(uid, req.params.projectId), target = projectPrefix(uid, req.body.projectId);
+      await (options.requirePaid || requireProjectAccess)(uid, req.body.projectId);
       if (source === target) throw Object.assign(new Error('Choose a different destination project.'), { status: 400 });
       await authorizeProject(uid, req.params.projectId, req.idToken, true);
       await authorizeProject(uid, req.body.projectId, req.idToken, true);

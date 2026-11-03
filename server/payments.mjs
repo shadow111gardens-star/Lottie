@@ -34,6 +34,34 @@ export async function requirePaidEntitlement(uid, db) {
   return entitlement;
 }
 
+// Trial accounting is private, per account, transactional and never client-writable.
+export const FREE_PROJECT_LIMIT = 3;
+export function trialFromUser(user) {
+  const used = Number.isInteger(user?.freeProjectsUsed) && user.freeProjectsUsed >= 0 ? user.freeProjectsUsed : 0;
+  return { enabled: user?.freeTrialEnabled === true, used, remaining: Math.max(0, FREE_PROJECT_LIMIT - used), limit: FREE_PROJECT_LIMIT };
+}
+export async function reserveProjectAccess(uid, projectId, db = billingFirestore()) {
+  if (typeof projectId !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(projectId)) throw error(400, 'Invalid project ID.');
+  return db.runTransaction(async tx => {
+    const userRef = db.doc(`users/${uid}`), grant = db.doc(`users/${uid}/trialProjects/${projectId}`);
+    const [user, existing] = await Promise.all([tx.get(userRef), tx.get(grant)]);
+    if (entitlementFromUser(user.data())?.active) return { paid: true };
+    const trial = trialFromUser(user.data());
+    if (!trial.enabled) throw error(402, 'Choose the Free plan or upgrade to create projects.');
+    if (existing.exists) return { trial };
+    if (trial.remaining === 0) throw error(402, 'All 3 free project trials have been used. Choose Pro or Lifetime to create more projects.');
+    tx.set(userRef, { freeProjectsUsed: trial.used + 1 }, { merge: true });
+    tx.set(grant, { projectId, createdAt: FieldValue.serverTimestamp() });
+    return { trial: { ...trial, used: trial.used + 1, remaining: trial.remaining - 1 } };
+  });
+}
+export async function requireProjectAccess(uid, projectId, db = billingFirestore()) {
+  if ((await getUserEntitlement(uid, db))?.active) return;
+  const [user, grant] = await Promise.all([db.doc(`users/${uid}`).get(), db.doc(`users/${uid}/trialProjects/${projectId}`).get()]);
+  if (trialFromUser(user.data()).enabled && grant.exists) return;
+  throw error(402, 'Choose Pro or Lifetime to use this project.');
+}
+
 // Only called after SDK raw-body signature verification. Binding metadata is created
 // on our server, never taken from the checkout request or a redirect query string.
 export async function processDodoEvent(event, eventId, { db, client, configuration }) {
@@ -161,8 +189,19 @@ export function createPaymentsApi(options = {}) {
       res.json({ checkoutUrl: session.checkout_url });
     } catch (cause) { next(cause); }
   });
+  app.post('/api/trial', authenticate, express.json({ limit: '2kb' }), async (req, res, next) => {
+    try {
+      if (req.body?.action === 'start' && Object.keys(req.body).length === 1) {
+        const ref = db().doc(`users/${req.identity.uid}`);
+        await ref.set({ freeTrialEnabled: true }, { merge: true });
+        return res.json({ trial: trialFromUser((await ref.get()).data()) });
+      }
+      if (req.body?.action === 'reserve' && Object.keys(req.body).length === 2) return res.json(await reserveProjectAccess(req.identity.uid, req.body.projectId, db()));
+      throw error(400, 'Invalid trial request.');
+    } catch (cause) { next(cause); }
+  });
   app.get('/api/entitlement', authenticate, async (req, res, next) => {
-    try { res.json({ entitlement: await getUserEntitlement(req.identity.uid, db()) }); } catch (cause) { next(cause); }
+    try { const user = (await db().doc(`users/${req.identity.uid}`).get()).data(); res.json({ entitlement: entitlementFromUser(user), trial: trialFromUser(user) }); } catch (cause) { next(cause); }
   });
   app.use((cause, _req, res, _next) => {
     const providerError = cause instanceof DodoPayments.APIError;

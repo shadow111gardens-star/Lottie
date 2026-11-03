@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
 import { Webhook } from 'standardwebhooks';
 import DodoPayments from 'dodopayments';
-import { createPaymentsApi, entitlementFromUser, getUserEntitlement, requirePaidEntitlement, paymentConfig, supportedEvents } from '../server/payments.mjs';
+import { createPaymentsApi, entitlementFromUser, getUserEntitlement, requirePaidEntitlement, paymentConfig, supportedEvents, reserveProjectAccess, requireProjectAccess, trialFromUser } from '../server/payments.mjs';
 import { billingFirestore, firebaseAdmin, verifyFirebaseToken } from '../server/firebase-admin.mjs';
 import { getAuth as adminAuth } from 'firebase-admin/auth';
 import { getApps, deleteApp } from 'firebase-admin/app';
@@ -47,7 +47,7 @@ const client = {
   checkoutSessions: { create: async request => { checkouts.push(request); return { session_id: `test-session-${checkouts.length}`, checkout_url: 'https://checkout.dodopayments.com/test-only' }; } },
   subscriptions: { retrieve: async id => { if (!subscriptions.has(id)) throw new Error('Unknown test subscription'); return subscriptions.get(id); } },
 };
-const verify = async token => { if (!['alice', 'bob', 'unpaid'].includes(token)) throw new Error('Invalid token'); return { uid: token, email: `${token}@example.com`, name: token }; };
+const verify = async token => { if (!['alice', 'bob', 'unpaid', 'trial-user'].includes(token)) throw new Error('Invalid token'); return { uid: token, email: `${token}@example.com`, name: token }; };
 const app = createPaymentsApi({ db, client, configuration, verify });
 app.use('/api/storage', createStorageApi({ verify, requirePaid: uid => requirePaidEntitlement(uid, db), bucket: 'test', authorizeProject: async () => {} }));
 const server = app.listen(0, '127.0.0.1');
@@ -64,6 +64,28 @@ const subscriptionEvent = (type, status, metadata, id = 'sub-alice') => {
   return { type, timestamp: new Date(Date.UTC(2026, 9, 5, 0, 0, sequence++)).toISOString(), data };
 };
 try {
+
+  const trialPost = body => fetch(`${origin}/api/trial`, {method:'POST',headers:{Authorization:'Bearer trial-user','Content-Type':'application/json'},body:JSON.stringify(body)});
+  assert.equal((await fetch(`${origin}/api/trial`,{method:'POST'})).status,401);
+  assert.equal((await trialPost({action:'reserve',projectId:'one'})).status,402);
+  assert.equal((await trialPost({action:'start'})).status,200);
+  const allocations=await Promise.all(['one','two','three','four','five'].map(projectId=>trialPost({action:'reserve',projectId})));
+  assert.equal(allocations.filter(r=>r.status===200).length,3,'Concurrent requests cannot exceed three projects');
+  assert.equal(allocations.filter(r=>r.status===402).length,2);
+  const accepted=['one','two','three','four','five'].filter((_,i)=>allocations[i].status===200);
+  assert.equal((await trialPost({action:'reserve',projectId:accepted[0]})).status,200,'Same project retry never consumes another trial');
+  await requireProjectAccess('trial-user',accepted[0],db);
+  await assert.rejects(requireProjectAccess('trial-user','other',db),{status:402});
+  await assert.rejects(requireProjectAccess('bob',accepted[0],db),{status:402});
+  await trialPost({action:'start'});
+  assert.equal(trialFromUser((await db.doc('users/trial-user').get()).data()).used,3,'Starting again cannot reset trial counter');
+  assert.equal((await trialPost({action:'reserve',projectId:'new-after-delete'})).status,402);
+  await assert.rejects(reserveProjectAccess('trial-user','../escape',db),{status:400});
+  const trialResponse=await (await fetch(`${origin}/api/entitlement`,{headers:{Authorization:'Bearer trial-user'}})).json();
+  assert.equal(trialResponse.entitlement,null,'Free access never fabricates a paid plan');
+  assert.deepEqual(trialResponse.trial,{enabled:true,used:3,remaining:0,limit:3});
+  console.log('PASS free project trials: authentication, concurrency, idempotent retry, exhaustion, account isolation and paid entitlement separation');
+
   for (const route of [checkoutRoute, entitlementRoute, webhookRoute]) assert.equal(typeof route, 'function');
   assert.equal((await fetch(`${origin}/api/checkout`, { method: 'POST' })).status, 401);
   assert.equal((await checkout('pro', 'invalid')).status, 401);
@@ -179,6 +201,17 @@ try {
       assert.equal((await firestore.getDoc(projectRef)).data().ownerId,user.uid);
       for(const field of ['subscriptionStatus','lifetime','dodoCustomerId','dodoSubscriptionId','dodoLifetimePaymentId','dodoLastPaymentId','dodoLastPaymentStatus'])await assert.rejects(firestore.updateDoc(firestore.doc(clientDb,'users',user.uid),{[field]:'spoof'}),{code:'permission-denied'});
       for(const collection of ['dodoCheckouts','dodoBillingObjects','dodoWebhookEvents'])await assert.rejects(firestore.setDoc(firestore.doc(clientDb,collection,'client-bypass'),{uid:user.uid,plan:'lifetime'}),{code:'permission-denied'});
+      await db.doc(`users/${user.uid}`).set({freeTrialEnabled:true,freeProjectsUsed:0});
+      const grantPath=`users/${user.uid}/trialProjects/trial-rule-project`;
+      await assert.rejects(firestore.setDoc(firestore.doc(clientDb,grantPath),{projectId:'trial-rule-project'}),{code:'permission-denied'});
+      await assert.rejects(firestore.updateDoc(firestore.doc(clientDb,'users',user.uid),{freeProjectsUsed:0}),{code:'permission-denied'});
+      await reserveProjectAccess(user.uid,'trial-rule-project',db);
+      const trialRef=firestore.doc(clientDb,'users',user.uid,'projects','trial-rule-project');
+      await firestore.setDoc(trialRef,{...projectData,projectId:'trial-rule-project'});
+      await firestore.updateDoc(trialRef,{name:'Free editing works'});
+      await assert.rejects(firestore.setDoc(firestore.doc(clientDb,'users',user.uid,'projects','unreserved'),{...projectData,projectId:'unreserved'}),{code:'permission-denied'});
+      await firestore.deleteDoc(trialRef);
+      assert.equal(trialFromUser((await db.doc(`users/${user.uid}`).get()).data()).used,1,'Deleting a project does not restore its trial');
       const verifiedToken = await user.getIdToken();
       assert.equal((await verifyFirebaseToken(verifiedToken)).uid,user.uid);
       await adminAuth(firebaseAdmin()).updateUser(user.uid,{disabled:true});

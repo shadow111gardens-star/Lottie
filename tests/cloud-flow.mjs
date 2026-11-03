@@ -9,6 +9,7 @@ import { GifWriter } from 'omggif';
 import { initializeApp, deleteApp } from 'firebase/app';
 import { connectAuthEmulator, signInWithCredential, GoogleAuthProvider, signOut, getAuth } from 'firebase/auth';
 import { connectFirestoreEmulator, doc, getDoc, setDoc, getFirestore, terminate, disableNetwork, enableNetwork } from 'firebase/firestore';
+import { createPaymentsApi, requireProjectAccess } from '../server/payments.mjs';
 import { billingFirestore } from '../server/firebase-admin.mjs';
 import { createStorageApi } from '../server/storage.mjs';
 import vercelStorage from '../api/storage.mjs';
@@ -33,6 +34,7 @@ const [host, port] = process.env.FIRESTORE_EMULATOR_HOST.split(':');
 connectFirestoreEmulator(api.db, host, Number(port));
 const fixture = new MemoryS3();
 const application = express();
+application.use(createPaymentsApi());
 if (process.env.SVGFORGE_TEST_REAL_R2 === '1') {
   // Apply the exact Vercel route rewrite, including preservation of path query.
   application.use('/api/storage', (req, res, next) => {
@@ -41,14 +43,14 @@ if (process.env.SVGFORGE_TEST_REAL_R2 === '1') {
     req.url = `/api/storage?${url.searchParams}`;
     vercelStorage(req, res, next);
   });
-} else application.use('/api/storage', createStorageApi({ requirePaid: async () => ({ plan: 'pro', active: true, lifetime: false }), s3: fixture, bucket: 'test-bucket' }));
+} else application.use('/api/storage', createStorageApi({ requirePaid: (uid,id) => requireProjectAccess(uid,id), s3: fixture, bucket: 'test-bucket' }));
 const server = application.listen(0, '127.0.0.1');
 await new Promise(resolve => server.once('listening', resolve));
 const origin = `http://127.0.0.1:${server.address().port}`;
 let failUploads = false; let storageCalls = 0;
 globalThis.fetch = (input, options) => {
   if (typeof input === 'string' && input.startsWith('/api/')) {
-    storageCalls++;
+    if (input.startsWith('/api/storage')) storageCalls++;
     if (failUploads && options?.method === 'PUT') return Promise.resolve(new Response(JSON.stringify({ error: 'Simulated network failure' }), { status: 502, headers: { 'Content-Type': 'application/json' } }));
     return nativeFetch(origin + input, options);
   }
@@ -230,6 +232,27 @@ try {
   await fresh.deleteProject(copiedId); ids.delete(copiedId);
   console.log('PASS R2 files deleted before Firestore document; existing Undo restores files and exact state');
   for (const project of [...ids]) { await fresh.deleteProject(project); ids.delete(project); }
+  // Exercise real project store, trial API, rules and storage together.
+  const freeUser=(await signInWithCredential(api.auth,GoogleAuthProvider.credential(JSON.stringify({sub:'free-cloud-owner',email:'free@example.test'})))).user;
+  const freeToken=await freeUser.getIdToken();
+  assert.equal((await nativeFetch(`${origin}/api/trial`,{method:'POST',headers:{Authorization:`Bearer ${freeToken}`,'Content-Type':'application/json'},body:JSON.stringify({action:'start'})})).status,200);
+  const freeIds=[];
+  try {
+    const first=await api.createProject('Free blank');freeIds.push(first);
+    await api.saveProject(first,{...(await api.loadProject(first)),name:'Free edited'});
+    const imported=await api.createProject('Free imported',edited);freeIds.push(imported);
+    const copied=await api.duplicateProject(imported);freeIds.push(copied);
+    assert.ok(await api.loadProject(copied));
+    await assert.rejects(()=>api.createProject('Fourth free project'),/All 3 free project trials/);
+    await assert.rejects(()=>api.duplicateProject(imported),/All 3 free project trials/);
+    await api.deleteProject(first);freeIds.splice(freeIds.indexOf(first),1);
+    await assert.rejects(()=>api.createProject('Deleted project cannot reset trial'),/All 3 free project trials/);
+    await api.saveProject(imported,{...(await api.loadProject(imported)),name:'Editable after trial quota'});
+    assert.equal((await billingFirestore().doc(`users/${freeUser.uid}`).get()).data().freeProjectsUsed,3);
+    console.log('PASS Free plan: real blank/import/duplicate, save/load/storage, fourth-project denial, deletion without reset and editing after quota');
+  } finally {
+    for(const id of freeIds)await api.deleteProject(id).catch(()=>{});
+  }
   await signOut(api.auth);
   await assert.rejects(() => api.readProjects(), /Sign in/);
   await assert.rejects(() => api.createProject(), /Sign in/);

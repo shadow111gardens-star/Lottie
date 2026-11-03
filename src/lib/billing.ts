@@ -4,6 +4,17 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { getFirebaseAuth } from '../lib/firebase';
 
 export type PaidPlan = 'pro' | 'lifetime';
+export type FreeTrial = { enabled: boolean; used: number; remaining: number; limit: number };
+export async function trialRequest(action: 'start' | 'reserve', projectId?: string) {
+  const user = getFirebaseAuth().currentUser;
+  if (!user) throw new Error('Sign in to use your free trials.');
+  const response = await fetch('/api/trial', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await user.getIdToken()}` }, body: JSON.stringify({ action, ...(projectId ? { projectId } : {}) }) });
+  const result = await response.json();
+  if (!response.ok) throw Object.assign(new Error(result.error || 'Could not check free project trials.'), { status: response.status });
+  if (getFirebaseAuth().currentUser?.uid !== user.uid) throw new Error('Your account changed. Sign in again.');
+  window.dispatchEvent(new Event('vekto-access-changed'));
+  return result;
+}
 export type Entitlement = { plan: PaidPlan; active: boolean; lifetime: boolean; subscriptionStatus?: string };
 export function isPaidEntitlement(value: unknown): boolean {
   if (!value || typeof value !== 'object') return false;
@@ -23,6 +34,7 @@ export async function createCheckout(plan: PaidPlan) {
 }
 
 export function useEntitlement({ pollUntilActive = false, revalidationKey = '' }: { pollUntilActive?: boolean; revalidationKey?: string } = {}) {
+  const [trial, setTrial] = useState<FreeTrial | null>(null);
   const [entitlement, setEntitlement] = useState<Entitlement | null>(null);
   const [authReady, setAuthReady] = useState(false);
   const [authError, setAuthError] = useState(false);
@@ -34,14 +46,14 @@ export function useEntitlement({ pollUntilActive = false, revalidationKey = '' }
     let timer: ReturnType<typeof setTimeout> | undefined;
     let stopAuth: (() => void) | undefined;
     let request: AbortController | undefined;
-    const reset = () => { ++generation; clearTimeout(timer); request?.abort(); setEntitlement(null); setConfirmation(null); };
+    const reset = () => { ++generation; clearTimeout(timer); request?.abort(); setEntitlement(null); setTrial(null); setConfirmation(null); };
     const refresh = async () => {
       clearTimeout(timer); request?.abort();
       const version = ++generation;
       let user;
       try { user = getFirebaseAuth().currentUser; }
       catch { setAuthError(true); setStatus('Could not verify your account. Reload to retry.'); return; }
-      if (!user) { setEntitlement(null); setConfirmation(null); setStatus(''); return; }
+      if (!user) { setEntitlement(null); setTrial(null); setConfirmation(null); setStatus(''); return; }
       const abort = new AbortController(); request = abort;
       const timeout = setTimeout(() => abort.abort(), 15000);
       try {
@@ -56,14 +68,17 @@ export function useEntitlement({ pollUntilActive = false, revalidationKey = '' }
         const params = new URLSearchParams(window.location.search);
         const processing = params.get('checkout') === 'processing';
         const waiting = processing && (!paid || (['pro', 'lifetime'].includes(params.get('checkout_plan') || '') && current?.plan !== params.get('checkout_plan')));
+        const free = result.trial;
+        const currentTrial: FreeTrial | null = free?.enabled === true && free.limit === 3 && Number.isInteger(free.used) && free.used >= 0 && free.used <= 3 && free.remaining === 3 - free.used ? free : null;
+        setTrial(currentTrial);
         setEntitlement(current); setConfirmation({ uid: user.uid, route: revalidationKey });
-        setStatus(waiting ? 'Payment processing...' : paid ? `${current!.plan === 'pro' ? 'Pro' : 'Lifetime'} \u00b7 Active` : current ? `${current.plan === 'pro' ? 'Pro' : 'Lifetime'} \u00b7 Inactive` : 'No active paid plan');
+        setStatus(waiting ? 'Payment processing...' : paid ? `${current!.plan === 'pro' ? 'Pro' : 'Lifetime'} \u00b7 Active` : currentTrial ? `Free · ${currentTrial.remaining} of 3 project trials remaining` : current ? `${current.plan === 'pro' ? 'Pro' : 'Lifetime'} \u00b7 Inactive` : 'No active paid plan');
         if (pollUntilActive) timer = setTimeout(() => void refresh(), paid ? 15000 : 2000);
         else if (waiting && attempts++ < 30) timer = setTimeout(() => void refresh(), 2000);
         else if (waiting) setStatus('Payment still pending. Refresh to check again.');
       } catch {
         if (!disposed && version === generation) {
-          setEntitlement(null); setConfirmation(null); setStatus('Could not check plan. Retrying...');
+          setEntitlement(null); setTrial(null); setConfirmation(null); setStatus('Could not check plan. Retrying...');
           if (pollUntilActive || attempts++ < 30) timer = setTimeout(() => void refresh(), 2000);
         }
       } finally { clearTimeout(timeout); }
@@ -77,6 +92,8 @@ export function useEntitlement({ pollUntilActive = false, revalidationKey = '' }
         setStatus(user ? 'Checking plan...' : ''); void refresh();
       }, () => { reset(); setAuthReady(true); setAuthError(true); setStatus('Could not verify your account. Reload to retry.'); });
     } catch { reset(); setAuthReady(true); setAuthError(true); setStatus('Could not verify your account. Reload to retry.'); }
+    const accessChanged = () => void refresh();
+    window.addEventListener('vekto-access-changed', accessChanged);
     window.addEventListener('focus', resume);
     window.addEventListener('pageshow', resume);
     window.addEventListener('popstate', resume);
@@ -85,6 +102,7 @@ export function useEntitlement({ pollUntilActive = false, revalidationKey = '' }
     document.addEventListener('visibilitychange', visibility);
     return () => {
       disposed = true; ++generation; clearTimeout(timer); request?.abort(); stopAuth?.();
+      window.removeEventListener('vekto-access-changed', accessChanged);
       window.removeEventListener('focus', resume); window.removeEventListener('pageshow', resume);
       window.removeEventListener('popstate', resume); window.removeEventListener('pagehide', leave);
       window.removeEventListener('vekto-checkout-leaving', leave); document.removeEventListener('visibilitychange', visibility);
@@ -93,5 +111,6 @@ export function useEntitlement({ pollUntilActive = false, revalidationKey = '' }
   let currentUid: string | undefined;
   try { currentUid = getFirebaseAuth().currentUser?.uid; } catch { /* Initialization errors never grant access. */ }
   const active = !authError && !!userId && confirmation?.uid === userId && confirmation.route === revalidationKey && currentUid === userId && isPaidEntitlement(entitlement);
-  return { entitlement, status, authReady, authError, userId, active };
+  const canAccess = active || (!authError && !!userId && confirmation?.uid === userId && confirmation.route === revalidationKey && currentUid === userId && trial?.enabled === true);
+  return { entitlement, trial, status, authReady, authError, userId, active, canAccess };
 }

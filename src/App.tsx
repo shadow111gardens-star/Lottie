@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Routes, Route, Link, useLocation } from "react-router-dom";
+import { Routes, Route, Link, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from "framer-motion";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
@@ -10,7 +10,7 @@ import { Navbar, Footer } from "./SiteChrome";
 import PaidAccessGate from "./auth/PaidAccessGate";
 import Editor from "./Editor";
 import { GoogleSignInButton, GoogleSignInProvider, useGoogleSignIn } from './auth/GoogleSignIn';
-import { createCheckout, type PaidPlan } from './lib/billing';
+import { createCheckout, trialRequest } from './lib/billing';
 import { getFirebaseAuth } from './lib/firebase';
 import {
   Sparkles,
@@ -35,7 +35,7 @@ gsap.registerPlugin(ScrollTrigger);
 
 /* ───────── Types ───────── */
 interface Plan {
-  id: 'pro' | 'lifetime';
+  id: 'free' | 'pro' | 'lifetime';
   name: string;
   price: string;
   period: string;
@@ -100,6 +100,12 @@ const pricingFeatures = [
 ];
 
 const pricingPlans: Plan[] = [
+  {
+    id: 'free', name: 'Free', price: '$0', period: '/ forever',
+    features: [{ label: '3 free project trials' }, ...pricingFeatures.slice(2)],
+    cta: 'Start for free', popular: false, badge: '',
+    description: 'Try Vekto with 3 projects. No credit card required.',
+  },
   {
     id: 'pro',
     name: "Pro",
@@ -773,29 +779,30 @@ function UseCases() {
 
 /* ───────── Pricing ───────── */
 function Pricing() {
+  const navigate = useNavigate();
   const login = useGoogleSignIn();
-  const [pendingPlan, setPendingPlan] = useState<PaidPlan | null>(null);
+  const [pendingPlan, setPendingPlan] = useState<Plan['id'] | null>(null);
   const [checkoutError, setCheckoutError] = useState('');
   const pending = useRef(false);
-  const begin = async (plan: PaidPlan) => {
+  const begin = async (plan: Plan['id']) => {
     if (pending.current) return;
     pending.current = true; setPendingPlan(plan); setCheckoutError('');
-    try { await createCheckout(plan); }
+    try { if (plan === 'free') { await trialRequest('start'); navigate('/dashboard'); } else await createCheckout(plan); }
     catch (cause) { setCheckoutError(cause instanceof Error ? cause.message : 'Checkout could not be created.'); }
     finally { pending.current = false; setPendingPlan(null); }
   };
-  const checkout = (plan: PaidPlan) => {
+  const checkout = (plan: Plan['id']) => {
     setCheckoutError('');
     try { if (getFirebaseAuth().currentUser) void begin(plan); else login.signIn(() => begin(plan)); }
     catch (cause) { setCheckoutError(cause instanceof Error ? cause.message : 'Sign in to continue.'); }
   };
   return (
     <section id="pricing" className="relative z-10 bg-slate-50 px-6 py-32">
-      <div className="mx-auto max-w-5xl">
+      <div className="mx-auto max-w-7xl">
         <h2 className="text-center font-display text-5xl font-black leading-[0.95] text-slate-900 md:text-7xl">
           Choose your scale
         </h2>
-        <div className="mt-16 grid gap-6 md:grid-cols-2">
+        <div className="mt-16 grid gap-6 lg:grid-cols-3">
           {pricingPlans.map((plan) => (
             <div
               key={plan.name}
@@ -831,7 +838,7 @@ function Pricing() {
                     : "bg-violet-600 text-white shadow-lg shadow-violet-600/20"
                 }`}
               >
-                {pendingPlan === plan.id ? 'Opening checkout…' : plan.cta}<ArrowRight className="h-5 w-5 shrink-0" />
+                {pendingPlan === plan.id ? (plan.id === 'free' ? 'Starting free plan…' : 'Opening checkout…') : plan.cta}<ArrowRight className="h-5 w-5 shrink-0" />
               </button>
             </div>
           ))}

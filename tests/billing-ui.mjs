@@ -48,6 +48,14 @@ try {
     assert.equal(calls.at(-1).options.headers.Authorization, 'Bearer verified-client-token');
     assert.equal(window.location.href, response.checkoutUrl);
   }
+  response = { trial: { enabled:true,used:0,remaining:3,limit:3 } };
+  const locationBeforeFree=window.location.href;
+  await React.act(async()=>api.trialRequest('start'));
+  assert.ok(calls.some(call=>call.url==='/api/trial'));
+  assert.deepEqual(JSON.parse(calls.filter(call=>call.url==='/api/trial').at(-1).options.body),{action:'start'});
+  await React.act(async()=>api.trialRequest('reserve','trial-project'));
+  assert.deepEqual(JSON.parse(calls.filter(call=>call.url==='/api/trial').at(-1).options.body),{action:'reserve',projectId:'trial-project'});
+  assert.equal(window.location.href,locationBeforeFree,'Free enrollment never opens Dodo checkout');
   response = { checkoutUrl: 'http://unsafe.example.com' };
   await assert.rejects(api.createCheckout('pro'), /invalid URL/);
   globalThis.fetch = async () => ({ ok: false, json: async () => ({ error: 'Please try again.' }) });

@@ -6,11 +6,13 @@
   "functions": {
     "api/storage.mjs": { "maxDuration": 300, "excludeFiles": "{public,dist,tests}/**" },
     "api/checkout.mjs": { "maxDuration": 60, "excludeFiles": "{public,dist,tests}/**" },
+    "api/trial.mjs": { "maxDuration": 60, "excludeFiles": "{public,dist,tests}/**" },
     "api/entitlement.mjs": { "maxDuration": 60, "excludeFiles": "{public,dist,tests}/**" },
     "api/webhooks/dodo.mjs": { "maxDuration": 60, "excludeFiles": "{public,dist,tests}/**" }
   },
   "routes": [
     { "src": "/api/checkout", "dest": "/api/checkout" },
+    { "src": "/api/trial", "dest": "/api/trial" },
     { "src": "/api/entitlement", "dest": "/api/entitlement" },
     { "src": "/api/webhooks/dodo", "dest": "/api/webhooks/dodo" },
     { "src": "/api/storage/([A-Za-z0-9_-]+(?:/(?:copy|uploads))?)", "dest": "/api/storage?__storageRoute=$1" },
