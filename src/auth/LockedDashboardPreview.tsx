@@ -13,7 +13,7 @@ export default function LockedDashboardPreview() {
       <aside className="pd-sidebar">
         <div className="pd-account"><div className="pd-avatar">{name.charAt(0).toUpperCase()}</div><div><strong>{name}</strong><span>Personal workspace</span></div></div>
         <div className="pd-nav-label">WORKSPACE</div>
-        <nav><button className="is-selected" tabIndex={-1}><LayoutGrid size={18} />All projects<span>0</span></button><button tabIndex={-1}><Image size={18} />PNG → SVG<span className="pd-nav-new">New</span></button></nav>
+        <nav><button className="is-selected" tabIndex={-1}><LayoutGrid size={18} />All projects<span>0</span></button><button tabIndex={-1}><Image size={18} />PNG → SVG</button></nav>
         <div className="pd-nav-label pd-library-label">LIBRARY</div><nav><button tabIndex={-1}><FolderOpen size={18} />My assets</button></nav>
         <div className="pd-sidebar-bottom"><section className="pd-upgrade"><h2><Crown size={17} />Upgrade for more</h2><p>Explore plans for more storage and creative possibilities.</p><div className="paid-preview-upgrade">Upgrade plan ↗</div></section><button className="pd-logout" tabIndex={-1}><LogOut size={20} />Log out</button></div>
       </aside>
