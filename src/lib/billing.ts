@@ -127,10 +127,12 @@ export function useEntitlement({ pollUntilActive = false, revalidationKey = '' }
       window.removeEventListener('vekto-checkout-leaving', leave); document.removeEventListener('visibilitychange', visibility);
     };
   }, [pollUntilActive, revalidationKey]);
-  let currentUid: string | undefined;
-  try { currentUid = getFirebaseAuth().currentUser?.uid; } catch { /* Initialization errors never grant access. */ }
-  const active = !authError && !!userId && confirmation?.uid === userId && confirmation.route === revalidationKey && currentUid === userId && isPaidEntitlement(entitlement);
-  const accessChecked = !authError && !!userId && confirmation?.uid === userId && confirmation.route === revalidationKey && currentUid === userId;
-  const canAccess = active || (!authError && !!userId && confirmation?.uid === userId && confirmation.route === revalidationKey && currentUid === userId && trial?.enabled === true);
+  // onAuthStateChanged owns identity changes and clears confirmation. Re-reading
+  // auth.currentUser during render can transiently disagree with that callback
+  // and leave a confirmed paid account stuck behind the access gate.
+  const confirmed = !authError && !!userId && confirmation?.uid === userId && confirmation.route === revalidationKey;
+  const active = confirmed && isPaidEntitlement(entitlement);
+  const accessChecked = confirmed;
+  const canAccess = active || (confirmed && trial?.enabled === true);
   return { entitlement, trial, status, authReady, authError, userId, active, canAccess, accessChecked };
 }

@@ -7,7 +7,7 @@ import './paid-access.css';
 /** Confirm account access first. Plans open only from an explicit Upgrade action. */
 export default function PaidAccessGate({ children, pricing }: { children: ReactNode; pricing: ReactNode }) {
   const location = useLocation();
-  const billing = useEntitlement({ pollUntilActive: true, revalidationKey: `${location.key}:${location.pathname}${location.search}` });
+  const billing = useEntitlement({ pollUntilActive: true, revalidationKey: `${location.pathname}${location.search}` });
   const [enrollmentRetry, setEnrollmentRetry] = useState(0);
   const [upgradeUid, setUpgradeUid] = useState<string | null>(null);
   const [enrollment, setEnrollment] = useState<{uid: string; error: string} | null>(null);
