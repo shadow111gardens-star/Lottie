@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from "react";
-import { Routes, Route, Link, useLocation, useNavigate } from "react-router-dom";
+import { Routes, Route, Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from "framer-motion";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import Lenis from "lenis";
 import Dashboard from "./Dashboard";
 import AboutPage from "./About";
+import { BlogArticlePage, BlogIndexPage } from "./Blog";
 import { Navbar, Footer } from "./SiteChrome";
 import PaidAccessGate from "./auth/PaidAccessGate";
 import Editor from "./Editor";
@@ -1228,6 +1229,25 @@ function LandingPage({ loading, setLoading }: { loading: boolean; setLoading: (v
 }
 
 /* ───────── Main App ───────── */
+function PageSeo({ title, description, noIndex = false, children }: { title?: string; description?: string; noIndex?: boolean; children?: React.ReactNode }) {
+  const location = useLocation();
+  useEffect(() => {
+    if (title) document.title = title;
+    const canonicalUrl = `https://www.vekto.website${location.pathname}`;
+    const set = (selector: string, tag: 'meta' | 'link', attrs: Record<string, string>) => {
+      let node = document.head.querySelector<HTMLElement>(selector);
+      if (!node) { node = document.createElement(tag); document.head.append(node); }
+      Object.entries(attrs).forEach(([key, value]) => node!.setAttribute(key, value));
+    };
+    set('link[rel="canonical"]', 'link', { rel: 'canonical', href: canonicalUrl });
+    if (description) set('meta[name="description"]', 'meta', { name: 'description', content: description });
+    if (noIndex) set('meta[name="robots"]', 'meta', { name: 'robots', content: 'noindex, nofollow' });
+    else document.head.querySelector('meta[name="robots"]')?.remove();
+    return () => { if (noIndex) document.head.querySelector('meta[name="robots"]')?.remove(); };
+  }, [title, description, noIndex, location.pathname]);
+  return children ?? <Outlet />;
+}
+
 export default function App() {
   const [loading, setLoading] = useState(true);
 
@@ -1235,11 +1255,13 @@ export default function App() {
     <GoogleSignInProvider><Routes>
       <Route path="/" element={<LandingPage loading={loading} setLoading={setLoading} />} />
       <Route path="/about" element={<AboutPage navbar={<Navbar about />} footer={<Footer about />} />} />
-      <Route path="/privacy" element={<PrivacyPage />} />
-      <Route path="/terms" element={<TermsPage />} />
-      <Route path="/dashboard" element={<PaidAccessGate pricing={<Pricing />}><Dashboard /></PaidAccessGate>} />
-      <Route path="/editor" element={<PaidAccessGate pricing={<Pricing />}><Editor /></PaidAccessGate>} />
-      <Route path="/editor/:projectId" element={<PaidAccessGate pricing={<Pricing />}><Editor /></PaidAccessGate>} />
+      <Route path="/blog" element={<BlogIndexPage />} />
+      <Route path="/blog/:slug" element={<BlogArticlePage />} />
+      <Route path="/privacy" element={<PageSeo title="Privacy Policy — Vekto" description="Read how Vekto handles account information, projects, uploaded content, and privacy requests." />}><Route index element={<PrivacyPage />} /></Route>
+      <Route path="/terms" element={<PageSeo title="Terms & Conditions — Vekto" description="Read the terms for using Vekto Studio, including accounts, project content, plans, payments, and service availability." />}><Route index element={<TermsPage />} /></Route>
+      <Route path="/dashboard" element={<PageSeo noIndex><PaidAccessGate pricing={<Pricing />}><Dashboard /></PaidAccessGate></PageSeo>} />
+      <Route path="/editor" element={<PageSeo noIndex><PaidAccessGate pricing={<Pricing />}><Editor /></PaidAccessGate></PageSeo>} />
+      <Route path="/editor/:projectId" element={<PageSeo noIndex><PaidAccessGate pricing={<Pricing />}><Editor /></PaidAccessGate></PageSeo>} />
     </Routes></GoogleSignInProvider>
   );
 }

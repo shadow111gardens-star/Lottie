@@ -10,6 +10,7 @@ const navLinks = [
   { label: "Showcase", href: "#showcase" },
   { label: "Pricing", href: "#pricing" },
   { label: "About", href: "/about" },
+  { label: "Blog", href: "/blog" },
 ];
 
 export function Navbar({ about = false }: { about?: boolean }) {
@@ -112,6 +113,7 @@ export function Navbar({ about = false }: { about?: boolean }) {
 export function Footer({ about = false }: { about?: boolean }) {
   const links = [
     { label: "About", to: "/about" },
+    { label: "Blog", to: "/blog" },
     ...(about ? [{ label: "Contact", to: "/about#contact" }] : []),
     { label: "Privacy Policy", to: "/privacy" },
     { label: "Terms & Conditions", to: "/terms" },

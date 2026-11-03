@@ -21,6 +21,8 @@
     { "src": "/api/storage(?:/.*)?", "dest": "/api/storage" },
     { "handle": "filesystem" },
     { "src": "/about/?$", "dest": "/about/index.html" },
+    { "src": "/blog/?$", "dest": "/blog/index.html" },
+    { "src": "/blog/([a-z0-9-]+)/?$", "dest": "/blog/$1/index.html" },
     { "src": "/(?:about|privacy|terms|dashboard|editor(?:/[^/]+)?)?/?$", "dest": "/index.html" }
   ]
 }

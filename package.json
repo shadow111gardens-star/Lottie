@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "predev": "node scripts/prepare-media.mjs",
-    "prebuild": "node scripts/prepare-media.mjs",
-    "postbuild": "node scripts/prerender-about.mjs",
+    "prebuild": "node scripts/prepare-media.mjs && node scripts/generate-blog-covers.mjs",
+    "postbuild": "node scripts/prerender-about.mjs && node scripts/prerender-blog.mjs",
     "dev": "vite",
     "build": "vite build",
     "typecheck": "tsc --noEmit",

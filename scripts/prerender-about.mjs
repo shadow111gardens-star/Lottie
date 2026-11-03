@@ -27,6 +27,12 @@ try {
   await writeFile(temporary, bundle.outputFiles[0].text);
   const { render, aboutStructuredData } = await import(temporary.href);
   let html = await readFile('dist/index.html', 'utf8');
+  html = html
+    .replace(/<meta name="description"[^>]*>\s*/g, '')
+    .replace(/<link rel="canonical"[^>]*>\s*/g, '')
+    .replace(/<meta property="og:[^"]+"[^>]*>\s*/g, '')
+    .replace(/<meta name="twitter:card"[^>]*>\s*/g, '')
+    .replace(/<script type="application\/ld\+json">[\s\S]*?<\/script>\s*/g, '');
   html = html.replace(/<title>[^<]*<\/title>/, '<title>About Vekto — Building the Future of Product Animation</title>');
   html = html.replace('</head>', `
     <meta data-about-metadata name="description" content="Learn about Vekto, its founder Abhay Solanki, and the vision behind building a simpler, AI-native way to create product animations.">
