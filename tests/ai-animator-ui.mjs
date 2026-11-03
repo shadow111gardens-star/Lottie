@@ -17,7 +17,7 @@ const React=await import('react');const{createRoot}=await import('react-dom/clie
 const host=document.createElement('div');document.body.append(host);const root=createRoot(host);
 const originalFetch=globalThis.fetch,originalCreate=URL.createObjectURL,originalRevoke=URL.revokeObjectURL;
 let downloaded,mode='wait',resolveRequest,calls=[];
-const plan={title:'Logo bounce',description:'A soft brand reveal.',effect:'bounce',direction:'up',duration:3,intensity:0.5,stagger:0,loop:false,background:'transparent'};
+const plan={title:'Logo bounce',description:'A soft brand reveal.',effect:'bounce',direction:'up',duration:3,intensity:0.5,stagger:0,loop:false,background:'transparent',facialMotion:{enabled:false,blink:false,speak:false,eyes:{x:0,y:0,width:0,height:0},mouth:{x:0,y:0,width:0,height:0}}};
 globalThis.fetch=async(url,options)=>{assert.equal(url,'/api/ai-animator');assert.equal(options.headers.Authorization,'Bearer test-user-token');calls.push(options);if(mode==='wait')return new Promise(resolve=>{resolveRequest=resolve;});if(mode==='reject')return {ok:false,json:async()=>({error:'The AI provider rejected your API key.'})};return {ok:true,json:async()=>({plan})};};
 URL.createObjectURL=blob=>{downloaded=blob;return 'blob:ai-test';};URL.revokeObjectURL=()=>{};
 const click=async element=>React.act(async()=>element.click());

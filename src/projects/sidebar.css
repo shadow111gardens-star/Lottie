@@ -1,4 +1,10 @@
 .pd-sidebar{overflow-y:auto}
+.pd-sidebar nav button .pd-nav-new{font-size:9px;min-width:auto;padding:4px 6px;white-space:nowrap}
+.pd-coming-soon{min-height:360px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:36px;background:linear-gradient(145deg,#fff,#f7f4ff);border:1px solid #ebe5ff;border-radius:20px;color:#172035}
+.pd-coming-soon-icon{display:grid;place-items:center;width:58px;height:58px;border-radius:18px;background:#eee8ff;color:#7545ff;margin-bottom:16px}
+.pd-coming-soon>span{color:#7545ff;font-size:10px;font-weight:700;letter-spacing:1.6px}
+.pd-coming-soon h1{margin:10px 0 8px;font-size:30px}
+.pd-coming-soon p{max-width:420px;color:#8792a6;font-size:14px;line-height:1.7;margin:0}
 .pd-sidebar nav button{color:#252b40;font-weight:500}
 .pd-sidebar nav button.is-selected{background:linear-gradient(100deg,#f1ebff,#f5f1ff);color:#6f38ff;font-weight:650}
 .pd-sidebar nav button span{background:#f1f2fa;border-radius:5px;padding:3px 6px;color:#626a85;min-width:24px}

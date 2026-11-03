@@ -3,7 +3,8 @@ import { build } from 'esbuild';
 import { writeFile, unlink } from 'node:fs/promises';
 import { createAiAnimatorApi, providerRequest } from '../server/ai-animator.mjs';
 import { providers, validateAnimationPlan } from '../shared/animation-plan.mjs';
-const plan={title:'Brand reveal',description:'A gentle bounce with a clean transparent finish.',effect:'bounce',direction:'up',duration:3,intensity:0.5,stagger:0,loop:true,background:'transparent'};
+const noFace={enabled:false,blink:false,speak:false,eyes:{x:0,y:0,width:0,height:0},mouth:{x:0,y:0,width:0,height:0}};
+const plan={title:'Brand reveal',description:'A gentle bounce with a clean transparent finish.',effect:'bounce',direction:'up',duration:3,intensity:0.5,stagger:0,loop:true,background:'transparent',facialMotion:noFace};
 const output=new URL(`./.ai-animation-${process.pid}.mjs`,import.meta.url);
 const bundle=await build({stdin:{contents:'export {animateLogo} from "./src/editor/aiAnimator";export {initialScene,makeLayer,evaluate} from "./src/editor/model";export {exportSceneSvg} from "./src/editor/io";export {exportLottie} from "./src/editor/lottie";',resolveDir:process.cwd()},bundle:true,platform:'node',format:'esm',packages:'external',write:false});
 await writeFile(output,bundle.outputFiles[0].text);
@@ -21,8 +22,8 @@ const app=createAiAnimatorApi({verify:async token=>{if(token!=='user')throw Erro
 const server=app.listen(0,'127.0.0.1');await new Promise(resolve=>server.once('listening',resolve));const origin=`http://127.0.0.1:${server.address().port}`;
 const call=(body={},headers={})=>fetch(origin+'/api/ai-animator',{method:'POST',headers:{Authorization:'Bearer user','Content-Type':'application/json','X-Vekto-AI-Key':key,...headers},body:JSON.stringify({provider:'openai',model:'gpt-4.1-mini',prompt:'Animate my logo with a soft bounce',image,...body})});
 try{
- assert.equal(providers.gemini.model,'gemini-3.8-flash','Gemini defaults to a current model with structured output access');
  const api=await import(output.href);const base={...api.initialScene('Brand'),width:960,height:960,background:'transparent',layers:[api.makeLayer('rect',{x:220,y:300,width:220,height:120,fill:'#ff0088'}),api.makeLayer('ellipse',{x:520,y:340,width:80,height:80,fill:'#7700ff'})]};const original=JSON.stringify(base);
+ assert.equal(providers.gemini.model,'gemini-3.8-flash','Gemini defaults to a current model with structured output access');
  for(const effect of ['fade','slide','bounce','spin','pulse']){
    const scene=api.animateLogo(base,{...plan,effect});assert.equal(JSON.stringify(base),original,'Never mutate uploaded base logo');assert.equal(scene.layers[0].fill,'#ff0088');assert.equal(scene.duration,3);assert.ok(Object.keys(scene.layers[0].tracks).length>0);
    const start=api.evaluate(scene.layers[0],0),mid=api.evaluate(scene.layers[0],1),end=api.evaluate(scene.layers[0],3);

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Sparkles, Upload, KeyRound, ArrowUpRight, Download, LoaderCircle, X } from 'lucide-react';
 import { providers, validateAnimationPlan, type AnimationPlan } from '../../shared/animation-plan.mjs';
 import { animateLogo } from '../editor/aiAnimator';
+import { animateFacialFeatures } from '../editor/facialAnimator';
 import { exportSceneSvg } from '../editor/io';
 import { exportLottie } from '../editor/lottie';
 import { getFirebaseAuth } from '../lib/firebase';
@@ -27,7 +28,7 @@ export default function AiAnimator(){
      const response=await fetch('/api/ai-animator',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${await user.getIdToken()}`,'X-Vekto-AI-Key':key.trim()},body:JSON.stringify({provider,model:model.trim(),prompt:prompt.trim(),image:logo.preview,previous:plan}),signal:controller.signal,cache:'no-store'});
      const result=await response.json();if(!response.ok)throw new Error(result.error||'Animation generation failed.');
      if(id!==version.current||controller.signal.aborted||getFirebaseAuth().currentUser?.uid!==user.uid)return;
-     const next=validateAnimationPlan(result.plan);const scene=animateLogo(logo.scene,next);let svg=exportSceneSvg(scene,0,true);if(!next.loop)svg=svg.split('repeatCount="indefinite"').join('repeatCount="1" fill="freeze"');
+     const next=validateAnimationPlan(result.plan);if(/\b(eyes?|blink|wink|mouth|lips?|speak|talk|talking|face|facial)\b/i.test(prompt)&&!next.facialMotion.enabled)throw new Error('I could not isolate the requested facial features. Use a clear, front-facing portrait and ask for eye or mouth movement.');let scene=animateLogo(logo.scene,next);if(next.facialMotion.enabled)scene=await animateFacialFeatures(scene,logo.preview,next.facialMotion);let svg=exportSceneSvg(scene,0,true);if(!next.loop)svg=svg.split('repeatCount="indefinite"').join('repeatCount="1" fill="freeze"');
      setPlan(next);setAnimation(scene);setPreview(svg);setStatus('Your animated logo is ready. Refine it with another prompt or open it in the editor.');
    }catch(cause){if(id===version.current)setError(controller.signal.aborted?'Generation timed out. Retry when your provider is available.':cause instanceof Error?cause.message:'Could not generate this animation.');}
    finally{clearTimeout(timeout);if(id===version.current){working.current=false;setBusy(false);}}
@@ -41,7 +42,7 @@ export default function AiAnimator(){
    <input ref={picker} type="file" hidden accept=".png,.jpg,.jpeg,.svg,image/png,image/jpeg,image/svg+xml" aria-label="Upload logo" disabled={busy||saving} onChange={e=>{void select(e.currentTarget.files?.[0]);e.currentTarget.value='';}}/>
    <button type="button" className="ai-upload" aria-busy={busy&&!logo} disabled={busy||saving} onClick={()=>picker.current?.click()} onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();void select(e.dataTransfer.files[0]);}}>{logo?<><img src={logo.preview} alt="Prepared logo"/><strong>{logo.name}</strong><span>Click to replace</span></>:<><Upload size={28}/><strong>{busy?'Preparing your logo…':'Drop your logo here'}</strong><span>{busy?status:'or click to upload · SVG, PNG, JPG · Up to 8 MB'}</span></>}</button>
    {!logo&&(busy||error)&&<div className="ai-upload-feedback" aria-live="polite">{busy&&<p role="status"><LoaderCircle size={14} className="ai-spin"/>{status||'Preparing your logo…'}</p>}{error&&<p role="alert" className="ai-error">{error}</p>}</div>}
-   {logo?.flattened&&<p className="ai-note">This detailed logo is kept as one image layer so it can animate smoothly. Individual paths are not separately editable.</p>}
+   {logo?.flattened&&<p className="ai-note">This detailed artwork stays as a raster base; requested eye and mouth movements are added as separate animated layers.</p>}
    {logo?.traced&&!logo.flattened&&<p className="ai-note">This image was traced into editable vectors. Fine details and colors may differ slightly.</p>}
    <div className="ai-section-label"><span>02</span><h2>Connect your AI</h2><KeyRound size={16}/></div>
    <div className="ai-provider-row"><label>Provider<select value={provider} disabled={busy||saving} onChange={e=>{const value=e.target.value as keyof typeof providers;setProvider(value);setModel(providers[value].model);setKey('');}}>{Object.entries(providers).map(([id,item])=><option key={id} value={id}>{item.name}</option>)}</select></label><label>Model ID<input aria-label="AI model ID" value={model} onChange={e=>setModel(e.target.value)} maxLength={100} disabled={busy||saving}/></label></div>

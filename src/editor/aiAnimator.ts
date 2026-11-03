@@ -28,6 +28,7 @@ export function animateLogo(source: Scene, input: AnimationPlan): Scene {
       keys('rotation',frames.map(([t,,a])=>[t,layer.rotation+a*180/Math.PI]));
     };
     const strength=plan.intensity;
+    if(plan.facialMotion.enabled)return {...layer,startTime:undefined,endTime:undefined,tracks:{}};
     if(plan.effect==='pulse')groupTransform([[0,1,0],[0.5,1+0.1*strength,0],[1,1,0]]);
     else if(plan.effect==='spin')groupTransform([[0,0.8, -Math.PI*(0.2+strength*0.8)],[0.7,1,0],[1,1,0]]);
     else if(plan.effect==='bounce')groupTransform([[0,0.4+0.3*(1-strength),0],[0.5,1+0.12*strength,0],[0.72,1-0.06*strength,0],[1,1,0]]);
